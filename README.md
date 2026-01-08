@@ -1,36 +1,93 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Gestor de Correos
 
-## Getting Started
+Sistema de gestión de campañas de email para Gmail.
 
-First, run the development server:
+## Stack
+
+- **Framework**: Next.js 16 (App Router) + TypeScript
+- **Estilos**: Tailwind CSS 4 + shadcn/ui
+- **Auth/DB**: Supabase (Auth con Google + Postgres)
+- **Iconos**: Tabler Icons
+
+## Configuración inicial
+
+### 1. Variables de entorno
+
+Copiá `env.example` a `.env.local` y completá las variables:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp env.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Configurar Supabase
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Creá un proyecto en [Supabase](https://supabase.com)
+2. Obtené las credenciales desde Settings > API:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 3. Configurar Google OAuth
 
-## Learn More
+1. Andá a [Google Cloud Console](https://console.cloud.google.com)
+2. Creá un proyecto nuevo o usá uno existente
+3. Habilitá la Gmail API
+4. Creá credenciales OAuth 2.0:
+   - Tipo: Web application
+   - Authorized redirect URI: `https://TU_PROYECTO.supabase.co/auth/v1/callback`
+5. Agregá los scopes de Gmail:
+   - `https://www.googleapis.com/auth/gmail.send`
+   - `https://www.googleapis.com/auth/gmail.readonly`
+   - `https://www.googleapis.com/auth/gmail.modify`
 
-To learn more about Next.js, take a look at the following resources:
+### 4. Configurar Provider en Supabase
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. En Supabase Dashboard: Authentication > Providers > Google
+2. Activá el provider y pegá Client ID y Secret
+3. Agregá los scopes adicionales de Gmail
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 5. Ejecutar migraciones
 
-## Deploy on Vercel
+Ejecutá el archivo SQL en `supabase/migrations/001_initial_schema.sql` desde el SQL Editor de Supabase.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 6. Ejecutar la app
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+pnpm install
+pnpm dev
+```
+
+La app estará disponible en http://localhost:3000
+
+## Estructura del proyecto
+
+```
+app/
+├── (app)/           # Rutas protegidas (dashboard, contactos, etc.)
+├── (auth)/          # Login
+├── (public)/        # Páginas públicas (unsubscribe)
+└── api/             # Route handlers
+
+components/
+├── ui/              # Componentes shadcn
+├── app-sidebar.tsx
+└── app-header.tsx
+
+lib/
+└── supabase/        # Clientes Supabase
+
+server/
+└── auth/            # Validación de sesión
+
+supabase/
+└── migrations/      # Schema SQL
+```
+
+## Próximas fases
+
+- **Fase 2**: CRUD contactos + tags + segmentación
+- **Fase 3**: Plantillas HTML + preview
+- **Fase 4**: Campañas + snapshot + pruebas
+- **Fase 5**: QStash + SendTick + envío
+- **Fase 6**: Unsubscribe público
+- **Fase 7**: Rebotes + supresión
