@@ -28,6 +28,7 @@ import { getFirstGoogleAccount } from "@/server/integrations/db/google-accounts-
 import {
   createSendRun,
   getActiveSendRun,
+  getLatestSendRun,
   getSendRunById,
   updateSendRunStatus,
   updateSendRunNextTick,
@@ -564,6 +565,45 @@ export async function startCampaign(campaignId: string): Promise<SendRunResponse
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Reprogramar envío (útil cuando la campaña está atascada en "sending")
+// ─────────────────────────────────────────────────────────────────────────────
+export async function retryStuckCampaign(campaignId: string): Promise<void> {
+  // Obtener campaña
+  const campaign = await getCampaignById(campaignId);
+  if (!campaign) {
+    throw new Error("Campaña no encontrada");
+  }
+
+  // Solo para campañas en sending
+  if (campaign.status !== "sending") {
+    throw new Error("Esta función es solo para campañas en estado 'sending' que están atascadas");
+  }
+
+  // Verificar que tiene el lock
+  if (!campaign.activeLock) {
+    throw new Error("La campaña no tiene el lock activo. Intentá cancelar y volver a iniciar.");
+  }
+
+  // Obtener el send run activo
+  const sendRun = await getLatestSendRun(campaignId);
+  if (!sendRun) {
+    throw new Error("No se encontró un send run activo. Intentá cancelar y volver a iniciar.");
+  }
+
+  // Asegurar que el send run está en running
+  if (sendRun.status !== "running") {
+    await updateSendRunStatus(sendRun.id, "running");
+  }
+
+  // Reprogramar tick inmediatamente
+  await scheduleSendTick({
+    campaignId,
+    sendRunId: sendRun.id,
+    delaySeconds: 0,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Pausar campaña
 // ─────────────────────────────────────────────────────────────────────────────
 export async function pauseCampaign(campaignId: string): Promise<void> {
@@ -611,22 +651,25 @@ export async function resumeCampaign(campaignId: string): Promise<void> {
     throw new Error("La campaña no tiene el lock activo");
   }
 
-  // Obtener el send run pausado más reciente
-  const sendRun = await getActiveSendRun(campaignId);
+  // Obtener el send run más reciente (puede estar pausado)
+  const sendRun = await getLatestSendRun(campaignId);
 
-  // Actualizar estado
+  if (!sendRun) {
+    throw new Error("No se encontró un send run para reanudar. Intentá cancelar y volver a iniciar la campaña.");
+  }
+
+  // Actualizar estado del send run a running
+  await updateSendRunStatus(sendRun.id, "running");
+
+  // Actualizar estado de la campaña
   await updateCampaignStatus(campaignId, "sending");
 
-  if (sendRun) {
-    await updateSendRunStatus(sendRun.id, "running");
-
-    // Reprogramar tick
-    await scheduleSendTick({
-      campaignId,
-      sendRunId: sendRun.id,
-      delaySeconds: 0,
-    });
-  }
+  // Reprogramar tick
+  await scheduleSendTick({
+    campaignId,
+    sendRunId: sendRun.id,
+    delaySeconds: 0,
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

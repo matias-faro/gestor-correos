@@ -236,6 +236,24 @@ export async function startCampaign(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Reintentar campaña atascada (forzar reprogramación del tick)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function retryCampaign(
+  campaignId: string
+): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(`${API_BASE}/campaigns/${campaignId}/start`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ forceRetry: true }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error ?? "Error al reintentar campaña");
+  }
+  return res.json();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Pausar campaña
 // ─────────────────────────────────────────────────────────────────────────────
 export async function pauseCampaign(

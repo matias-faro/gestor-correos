@@ -45,6 +45,7 @@ import {
   IconPlayerPause,
   IconPlayerStop,
   IconMail,
+  IconRefresh,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 import {
@@ -59,6 +60,7 @@ import {
   startCampaign,
   pauseCampaign,
   cancelCampaign,
+  retryCampaign,
 } from "./api";
 import { fetchContacts } from "@/features/contacts/api";
 import type {
@@ -129,6 +131,7 @@ export function CampaignDetailPage({ campaignId }: CampaignDetailPageProps) {
   const [startDialogOpen, setStartDialogOpen] = useState(false);
   const [startingCampaign, setStartingCampaign] = useState(false);
   const [pausingCampaign, setPausingCampaign] = useState(false);
+  const [retryingCampaign, setRetryingCampaign] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancellingCampaign, setCancellingCampaign] = useState(false);
 
@@ -312,6 +315,19 @@ export function CampaignDetailPage({ campaignId }: CampaignDetailPageProps) {
     }
   };
 
+  const handleRetryCampaign = async () => {
+    setRetryingCampaign(true);
+    try {
+      const result = await retryCampaign(campaignId);
+      toast.success(result.message);
+      loadCampaign();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al reintentar campaña");
+    } finally {
+      setRetryingCampaign(false);
+    }
+  };
+
   const handleCancelCampaign = async () => {
     setCancellingCampaign(true);
     try {
@@ -419,6 +435,20 @@ export function CampaignDetailPage({ campaignId }: CampaignDetailPageProps) {
 
           {campaign.status === "sending" && (
             <>
+              <Button
+                variant="outline"
+                onClick={handleRetryCampaign}
+                disabled={retryingCampaign}
+                className="border-blue-600 bg-blue-600/10 text-blue-400 hover:bg-blue-600/20"
+                title="Reprogramar el envío si está atascado"
+              >
+                {retryingCampaign ? (
+                  <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <IconRefresh className="mr-2 h-4 w-4" />
+                )}
+                Reintentar
+              </Button>
               <Button
                 variant="outline"
                 onClick={handlePauseCampaign}

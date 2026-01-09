@@ -52,7 +52,7 @@ export async function createSendRun(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Obtener send run activo de una campaña
+// Obtener send run activo de una campaña (solo running)
 // ─────────────────────────────────────────────────────────────────────────────
 export async function getActiveSendRun(
   campaignId: string
@@ -64,6 +64,31 @@ export async function getActiveSendRun(
     .select("*")
     .eq("campaign_id", campaignId)
     .eq("status", "running")
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") return null;
+    throw new Error(`Error al obtener send run: ${error.message}`);
+  }
+
+  return mapSendRun(data as DbSendRun);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Obtener send run más reciente de una campaña (running o paused)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function getLatestSendRun(
+  campaignId: string
+): Promise<SendRunResponse | null> {
+  const supabase = await createServiceClient();
+
+  const { data, error } = await supabase
+    .from("send_runs")
+    .select("*")
+    .eq("campaign_id", campaignId)
+    .in("status", ["running", "paused"])
     .order("started_at", { ascending: false })
     .limit(1)
     .single();
