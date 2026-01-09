@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiAuth } from "@/server/auth/api";
 import { testSendSchema } from "@/server/contracts/campaigns";
-import { sendTestSimulated } from "@/server/services/CampaignService";
+import { sendTestSimulated, sendTestReal } from "@/server/services/CampaignService";
 import { listTestSendEvents } from "@/server/integrations/db/draft-items-repo";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -26,7 +26,7 @@ export async function GET(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// POST /api/campaigns/[id]/test-send - Enviar prueba simulada
+// POST /api/campaigns/[id]/test-send - Enviar prueba (simulada o real)
 // ─────────────────────────────────────────────────────────────────────────────
 export async function POST(
   request: NextRequest,
@@ -53,12 +53,32 @@ export async function POST(
   }
 
   try {
-    const event = await sendTestSimulated(campaignId, parsed.data.contactId);
-    return NextResponse.json({
-      success: true,
-      event,
-      message: `Prueba simulada enviada a ${event.toEmail}`,
-    });
+    // Envío real vs simulado
+    if (parsed.data.sendReal && parsed.data.toEmail) {
+      const result = await sendTestReal(
+        campaignId,
+        parsed.data.toEmail,
+        parsed.data.contactId
+      );
+      return NextResponse.json({
+        success: true,
+        result,
+        message: `Email de prueba enviado a ${result.toEmail}`,
+      });
+    } else if (parsed.data.contactId) {
+      // Envío simulado (solo guarda registro)
+      const event = await sendTestSimulated(campaignId, parsed.data.contactId);
+      return NextResponse.json({
+        success: true,
+        event,
+        message: `Prueba simulada guardada para ${event.toEmail}`,
+      });
+    } else {
+      return NextResponse.json(
+        { error: "Se requiere contactId para prueba simulada o toEmail para prueba real" },
+        { status: 400 }
+      );
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Error desconocido";
     const status = message.includes("no encontrad") ? 404 : 500;

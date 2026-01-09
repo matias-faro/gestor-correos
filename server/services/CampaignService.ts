@@ -380,6 +380,105 @@ export async function sendTestSimulated(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Enviar prueba REAL (envía email de verdad)
+// ─────────────────────────────────────────────────────────────────────────────
+export type SendTestRealResult = {
+  success: boolean;
+  toEmail: string;
+  subject: string;
+  gmailMessageId?: string;
+  gmailPermalink?: string;
+};
+
+export async function sendTestReal(
+  campaignId: string,
+  toEmail: string,
+  contactId?: string
+): Promise<SendTestRealResult> {
+  // Obtener campaña
+  const campaign = await getCampaignById(campaignId);
+  if (!campaign) {
+    throw new Error("Campaña no encontrada");
+  }
+
+  // Obtener template
+  if (!campaign.templateId) {
+    throw new Error("La campaña no tiene plantilla asignada");
+  }
+
+  const template = await getTemplateById(campaign.templateId);
+  if (!template) {
+    throw new Error("La plantilla de la campaña no existe");
+  }
+
+  // Obtener datos del contacto si se provee
+  let contactData = {
+    firstName: "Test",
+    lastName: "User",
+    company: "Test Company",
+  };
+
+  if (contactId) {
+    const contact = await getContactById(contactId);
+    if (contact) {
+      contactData = {
+        firstName: contact.firstName ?? "Test",
+        lastName: contact.lastName ?? "User",
+        company: contact.company ?? "Test Company",
+      };
+    }
+  }
+
+  // Renderizar
+  const result = renderHandlebarsTemplate(
+    {
+      subjectTpl: template.subjectTpl,
+      htmlTpl: template.htmlTpl,
+    },
+    {
+      FirstName: contactData.firstName,
+      LastName: contactData.lastName,
+      Company: contactData.company,
+      UnsubscribeUrl: `${getSiteUrl()}/u/test-unsubscribe`,
+    }
+  );
+
+  // Verificar que hay cuenta de Google configurada
+  const googleAccount = await getFirstGoogleAccount();
+  if (!googleAccount) {
+    throw new Error(
+      "No hay cuenta de Google conectada. Iniciá sesión con permisos de Gmail."
+    );
+  }
+
+  // Enviar el email real
+  const sendResult = await sendEmail({
+    googleAccountId: googleAccount.id,
+    to: toEmail,
+    subject: `[TEST] ${result.subject}`,
+    html: result.html,
+    fromAlias: campaign.fromAlias,
+  });
+
+  // Guardar registro del test
+  await createTestSendEvent({
+    campaignId,
+    contactId: contactId ?? null,
+    toEmail,
+    renderedSubject: `[TEST] ${result.subject}`,
+    renderedHtml: result.html,
+  });
+
+  return {
+    success: true,
+    toEmail,
+    subject: result.subject,
+    gmailMessageId: sendResult.messageId,
+    gmailPermalink: sendResult.permalink,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Iniciar campaña (tomar lock + crear run + programar primer tick)
 // ─────────────────────────────────────────────────────────────────────────────
 export async function startCampaign(campaignId: string): Promise<SendRunResponse> {

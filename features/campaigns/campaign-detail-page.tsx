@@ -41,6 +41,10 @@ import {
   IconChevronRight,
   IconSearch,
   IconEye,
+  IconPlayerPlay,
+  IconPlayerPause,
+  IconPlayerStop,
+  IconMail,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 import {
@@ -50,7 +54,11 @@ import {
   updateDraftItem,
   includeContactManually,
   sendTestSimulated,
+  sendTestReal,
   fetchTestSendEvents,
+  startCampaign,
+  pauseCampaign,
+  cancelCampaign,
 } from "./api";
 import { fetchContacts } from "@/features/contacts/api";
 import type {
@@ -115,10 +123,14 @@ export function CampaignDetailPage({ campaignId }: CampaignDetailPageProps) {
   const [includingContact, setIncludingContact] = useState(false);
 
   const [testSendDialogOpen, setTestSendDialogOpen] = useState(false);
-  const [testContactSearch, setTestContactSearch] = useState("");
-  const [testSearchResults, setTestSearchResults] = useState<Contact[]>([]);
-  const [testSearchLoading, setTestSearchLoading] = useState(false);
+  const [testEmail, setTestEmail] = useState("");
   const [sendingTest, setSendingTest] = useState(false);
+
+  const [startDialogOpen, setStartDialogOpen] = useState(false);
+  const [startingCampaign, setStartingCampaign] = useState(false);
+  const [pausingCampaign, setPausingCampaign] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancellingCampaign, setCancellingCampaign] = useState(false);
 
   const [previewItem, setPreviewItem] = useState<DraftItem | TestSendEvent | null>(null);
 
@@ -198,27 +210,6 @@ export function CampaignDetailPage({ campaignId }: CampaignDetailPageProps) {
     return () => clearTimeout(timer);
   }, [contactSearch, includeDialogOpen]);
 
-  // Search contacts for test send
-  useEffect(() => {
-    if (!testSendDialogOpen || !testContactSearch.trim()) {
-      setTestSearchResults([]);
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      setTestSearchLoading(true);
-      try {
-        const data = await fetchContacts({ query: testContactSearch, limit: 10 });
-        setTestSearchResults(data.contacts);
-      } catch {
-        setTestSearchResults([]);
-      } finally {
-        setTestSearchLoading(false);
-      }
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [testContactSearch, testSendDialogOpen]);
 
   // Handlers
   const handleGenerateSnapshot = async () => {
@@ -275,18 +266,63 @@ export function CampaignDetailPage({ campaignId }: CampaignDetailPageProps) {
     }
   };
 
-  const handleSendTest = async (contact: Contact) => {
+  const handleSendTestReal = async () => {
+    if (!testEmail.trim()) {
+      toast.error("Ingresá un email válido");
+      return;
+    }
     setSendingTest(true);
     try {
-      const result = await sendTestSimulated(campaignId, contact.id);
+      const result = await sendTestReal(campaignId, testEmail.trim());
       toast.success(result.message);
       setTestSendDialogOpen(false);
-      setTestContactSearch("");
+      setTestEmail("");
       loadTestEvents();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al enviar prueba");
     } finally {
       setSendingTest(false);
+    }
+  };
+
+  const handleStartCampaign = async () => {
+    setStartingCampaign(true);
+    try {
+      const result = await startCampaign(campaignId);
+      toast.success(result.message);
+      setStartDialogOpen(false);
+      loadCampaign();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al iniciar campaña");
+    } finally {
+      setStartingCampaign(false);
+    }
+  };
+
+  const handlePauseCampaign = async () => {
+    setPausingCampaign(true);
+    try {
+      const result = await pauseCampaign(campaignId);
+      toast.success(result.message);
+      loadCampaign();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al pausar campaña");
+    } finally {
+      setPausingCampaign(false);
+    }
+  };
+
+  const handleCancelCampaign = async () => {
+    setCancellingCampaign(true);
+    try {
+      const result = await cancelCampaign(campaignId);
+      toast.success(result.message);
+      setCancelDialogOpen(false);
+      loadCampaign();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al cancelar campaña");
+    } finally {
+      setCancellingCampaign(false);
     }
   };
 
@@ -347,16 +383,85 @@ export function CampaignDetailPage({ campaignId }: CampaignDetailPageProps) {
             onClick={() => setTestSendDialogOpen(true)}
             className="border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800"
           >
-            <IconSend className="mr-2 h-4 w-4" />
-            Enviar prueba
+            <IconMail className="mr-2 h-4 w-4" />
+            Enviar prueba real
           </Button>
-          <Button
-            onClick={() => setSnapshotDialogOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            <IconCamera className="mr-2 h-4 w-4" />
-            {stats?.totalDrafts ? "Regenerar snapshot" : "Generar snapshot"}
-          </Button>
+          
+          {campaign.status === "draft" && (
+            <Button
+              onClick={() => setSnapshotDialogOpen(true)}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <IconCamera className="mr-2 h-4 w-4" />
+              {stats?.totalDrafts ? "Regenerar snapshot" : "Generar snapshot"}
+            </Button>
+          )}
+
+          {campaign.status === "ready" && (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => setSnapshotDialogOpen(true)}
+                className="border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800"
+              >
+                <IconCamera className="mr-2 h-4 w-4" />
+                Regenerar snapshot
+              </Button>
+              <Button
+                onClick={() => setStartDialogOpen(true)}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <IconPlayerPlay className="mr-2 h-4 w-4" />
+                Iniciar campaña
+              </Button>
+            </>
+          )}
+
+          {campaign.status === "sending" && (
+            <>
+              <Button
+                variant="outline"
+                onClick={handlePauseCampaign}
+                disabled={pausingCampaign}
+                className="border-amber-600 bg-amber-600/10 text-amber-400 hover:bg-amber-600/20"
+              >
+                {pausingCampaign ? (
+                  <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <IconPlayerPause className="mr-2 h-4 w-4" />
+                )}
+                Pausar
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setCancelDialogOpen(true)}
+                className="border-red-600 bg-red-600/10 text-red-400 hover:bg-red-600/20"
+              >
+                <IconPlayerStop className="mr-2 h-4 w-4" />
+                Cancelar
+              </Button>
+            </>
+          )}
+
+          {campaign.status === "paused" && (
+            <>
+              <Button
+                onClick={() => setStartDialogOpen(true)}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <IconPlayerPlay className="mr-2 h-4 w-4" />
+                Reanudar
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setCancelDialogOpen(true)}
+                className="border-red-600 bg-red-600/10 text-red-400 hover:bg-red-600/20"
+              >
+                <IconPlayerStop className="mr-2 h-4 w-4" />
+                Cancelar
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -756,61 +861,152 @@ export function CampaignDetailPage({ campaignId }: CampaignDetailPageProps) {
         <DialogContent className="border-slate-800 bg-slate-950 sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-white">
-              Enviar prueba (simulada)
+              Enviar email de prueba
             </DialogTitle>
             <DialogDescription className="text-slate-400">
-              Seleccioná un contacto para ver cómo quedaría el email renderizado
-              con sus datos. No se enviará un email real.
+              Enviá un email de prueba real a cualquier dirección para verificar
+              cómo se ve la plantilla. El asunto incluirá [TEST].
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
-            <div className="relative">
-              <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="testEmail" className="mb-2 block text-sm font-medium text-slate-300">
+                Email de destino
+              </label>
               <Input
-                placeholder="Buscar por email o nombre..."
-                value={testContactSearch}
-                onChange={(e) => setTestContactSearch(e.target.value)}
-                className="border-slate-700 bg-slate-900 pl-9 text-slate-200"
+                id="testEmail"
+                type="email"
+                placeholder="tu@email.com"
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+                className="border-slate-700 bg-slate-900 text-slate-200"
                 autoFocus
               />
             </div>
-            <div className="max-h-64 overflow-y-auto rounded-lg border border-slate-800">
-              {testSearchLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <IconLoader2 className="h-5 w-5 animate-spin text-slate-400" />
-                </div>
-              ) : testSearchResults.length === 0 ? (
-                <p className="py-8 text-center text-sm text-slate-500">
-                  {testContactSearch
-                    ? "No se encontraron contactos"
-                    : "Escribí para buscar"}
-                </p>
-              ) : (
-                <div className="divide-y divide-slate-800">
-                  {testSearchResults.map((contact) => (
-                    <button
-                      key={contact.id}
-                      onClick={() => handleSendTest(contact)}
-                      disabled={sendingTest}
-                      className="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-slate-900 disabled:opacity-50"
-                    >
-                      <div>
-                        <p className="text-sm text-slate-200">{contact.email}</p>
-                        {(contact.firstName || contact.lastName) && (
-                          <p className="text-xs text-slate-500">
-                            {[contact.firstName, contact.lastName]
-                              .filter(Boolean)
-                              .join(" ")}
-                          </p>
-                        )}
-                      </div>
-                      <IconSend className="h-4 w-4 text-slate-400" />
-                    </button>
-                  ))}
-                </div>
-              )}
+            <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-3">
+              <p className="text-sm text-blue-300">
+                💡 Se enviará un email real usando tu cuenta de Gmail conectada.
+                Los datos de contacto usarán valores de prueba.
+              </p>
             </div>
           </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setTestSendDialogOpen(false)}
+              className="text-slate-400 hover:text-white"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSendTestReal}
+              disabled={sendingTest || !testEmail.trim()}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {sendingTest ? (
+                <>
+                  <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Enviando...
+                </>
+              ) : (
+                <>
+                  <IconSend className="mr-2 h-4 w-4" />
+                  Enviar prueba
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Start Campaign Dialog */}
+      <Dialog open={startDialogOpen} onOpenChange={setStartDialogOpen}>
+        <DialogContent className="border-slate-800 bg-slate-950 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white">
+              {campaign.status === "paused" ? "Reanudar campaña" : "Iniciar campaña"}
+            </DialogTitle>
+            <DialogDescription className="text-slate-400">
+              {campaign.status === "paused"
+                ? "La campaña continuará enviando emails desde donde se pausó."
+                : `Se comenzarán a enviar ${stats?.pending ?? 0} emails programados según las ventanas horarias configuradas.`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-3">
+            <p className="text-sm text-green-300">
+              ✓ El envío se realizará en background. Podés cerrar el navegador.
+            </p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setStartDialogOpen(false)}
+              className="text-slate-400 hover:text-white"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleStartCampaign}
+              disabled={startingCampaign}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {startingCampaign ? (
+                <>
+                  <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Iniciando...
+                </>
+              ) : (
+                <>
+                  <IconPlayerPlay className="mr-2 h-4 w-4" />
+                  {campaign.status === "paused" ? "Reanudar" : "Iniciar"}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Campaign Dialog */}
+      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <DialogContent className="border-slate-800 bg-slate-950 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white">Cancelar campaña</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Esta acción detendrá el envío de la campaña permanentemente. 
+              Los emails pendientes no se enviarán.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3">
+            <p className="text-sm text-red-300">
+              ⚠️ Esta acción no se puede deshacer. Los emails ya enviados no se verán afectados.
+            </p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setCancelDialogOpen(false)}
+              className="text-slate-400 hover:text-white"
+            >
+              Volver
+            </Button>
+            <Button
+              onClick={handleCancelCampaign}
+              disabled={cancellingCampaign}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {cancellingCampaign ? (
+                <>
+                  <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Cancelando...
+                </>
+              ) : (
+                <>
+                  <IconPlayerStop className="mr-2 h-4 w-4" />
+                  Cancelar campaña
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

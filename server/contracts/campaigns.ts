@@ -125,11 +125,16 @@ export const includeContactManuallySchema = z.object({
 export type IncludeContactManuallyInput = z.infer<typeof includeContactManuallySchema>;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Enviar prueba simulada
+// Enviar prueba (simulada o real)
 // ─────────────────────────────────────────────────────────────────────────────
 export const testSendSchema = z.object({
-  contactId: z.string().uuid("ID de contacto inválido"),
-});
+  contactId: z.string().uuid("ID de contacto inválido").optional(),
+  toEmail: z.string().email("Email inválido").optional(),
+  sendReal: z.boolean().optional().default(false),
+}).refine(
+  (data) => data.contactId || data.toEmail,
+  { message: "Se requiere contactId o toEmail" }
+);
 
 export type TestSendInput = z.infer<typeof testSendSchema>;
 

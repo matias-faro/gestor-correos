@@ -218,3 +218,71 @@ export async function fetchTestSendEvents(
   const data: TestSendEventsListResponse = await res.json();
   return data.testSendEvents;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Iniciar campaña
+// ─────────────────────────────────────────────────────────────────────────────
+export async function startCampaign(
+  campaignId: string
+): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(`${API_BASE}/campaigns/${campaignId}/start`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error ?? "Error al iniciar campaña");
+  }
+  return res.json();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pausar campaña
+// ─────────────────────────────────────────────────────────────────────────────
+export async function pauseCampaign(
+  campaignId: string
+): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(`${API_BASE}/campaigns/${campaignId}/pause`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error ?? "Error al pausar campaña");
+  }
+  return res.json();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Cancelar campaña
+// ─────────────────────────────────────────────────────────────────────────────
+export async function cancelCampaign(
+  campaignId: string
+): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(`${API_BASE}/campaigns/${campaignId}/cancel`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error ?? "Error al cancelar campaña");
+  }
+  return res.json();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Enviar prueba REAL (envía email de verdad)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function sendTestReal(
+  campaignId: string,
+  toEmail: string,
+  contactId?: string
+): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(`${API_BASE}/campaigns/${campaignId}/test-send`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ toEmail, contactId, sendReal: true }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error ?? "Error al enviar prueba real");
+  }
+  return res.json();
+}
