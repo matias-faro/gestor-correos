@@ -108,10 +108,15 @@ export async function getActiveCampaign(): Promise<ActiveCampaignInfo> {
     .eq("campaign_id", campaign.id)
     .eq("state", "pending");
 
-  const templateName =
-    campaign.templates && typeof campaign.templates === "object"
-      ? (campaign.templates as { name: string }).name
-      : null;
+  // templates puede ser un objeto o un array dependiendo de la relación
+  let templateName: string | null = null;
+  if (campaign.templates) {
+    if (Array.isArray(campaign.templates) && campaign.templates.length > 0) {
+      templateName = (campaign.templates[0] as { name: string }).name;
+    } else if (typeof campaign.templates === "object" && !Array.isArray(campaign.templates)) {
+      templateName = (campaign.templates as { name: string }).name;
+    }
+  }
 
   return {
     id: campaign.id,
