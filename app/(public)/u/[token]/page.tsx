@@ -1,29 +1,53 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { IconMailOff, IconCheck } from "@tabler/icons-react";
+import { IconMailOff, IconCheck, IconAlertTriangle } from "@tabler/icons-react";
+import { unsubscribeByToken, UnsubscribeError } from "@/server/services/UnsubscribeService";
+
+// Forzar render dinámico para cada token (no cachear)
+export const dynamic = "force-dynamic";
 
 type UnsubscribePageProps = {
   params: Promise<{
     token: string;
   }>;
-  searchParams: Promise<{
-    success?: string;
-    error?: string;
-  }>;
 };
 
-export default async function UnsubscribePage({ params, searchParams }: UnsubscribePageProps) {
+type UnsubscribeResult =
+  | { status: "success"; alreadyUnsubscribed: boolean }
+  | { status: "error"; code: "expired_token" | "invalid_token" | "server_error" };
+
+async function processUnsubscribe(token: string): Promise<UnsubscribeResult> {
+  try {
+    const result = await unsubscribeByToken(token);
+    return { status: "success", alreadyUnsubscribed: result.alreadyUnsubscribed };
+  } catch (err) {
+    if (err instanceof UnsubscribeError) {
+      if (err.code === "expired_token") {
+        return { status: "error", code: "expired_token" };
+      }
+      // invalid_token, contact_not_found, token_contact_mismatch → all map to invalid
+      return { status: "error", code: "invalid_token" };
+    }
+    // DB error, etc.
+    console.error("[UnsubscribePage] Error inesperado:", err);
+    return { status: "error", code: "server_error" };
+  }
+}
+
+export default async function UnsubscribePage({ params }: UnsubscribePageProps) {
   const { token } = await params;
-  const { success, error } = await searchParams;
-  const isSuccess = success === "true";
+
+  // Ejecutar baja en 1 click (server-side)
+  const result = await processUnsubscribe(decodeURIComponent(token));
+
+  const isSuccess = result.status === "success";
   const errorMessage =
-    error === "expired_token"
-      ? "Este link de baja expiró."
-      : error === "server_error"
-        ? "No pudimos procesar tu solicitud. Probá de nuevo más tarde."
-        : error
-          ? "Este link de baja no es válido."
-          : null;
+    result.status === "error"
+      ? result.code === "expired_token"
+        ? "Este link de baja expiró."
+        : result.code === "server_error"
+          ? "No pudimos procesar tu solicitud. Probá de nuevo más tarde."
+          : "Este link de baja no es válido."
+      : null;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
@@ -33,17 +57,19 @@ export default async function UnsubscribePage({ params, searchParams }: Unsubscr
             {isSuccess ? (
               <IconCheck className="w-8 h-8 text-emerald-400" stroke={2} />
             ) : (
-              <IconMailOff className="w-8 h-8 text-slate-300" stroke={1.5} />
+              <IconAlertTriangle className="w-8 h-8 text-amber-400" stroke={1.5} />
             )}
           </div>
           <div>
             <CardTitle className="text-2xl font-bold text-white">
-              {isSuccess ? "¡Listo!" : "Cancelar suscripción"}
+              {isSuccess ? "¡Listo!" : "Error"}
             </CardTitle>
             <CardDescription className="text-slate-400 mt-2">
               {isSuccess
-                ? "Tu suscripción ha sido cancelada correctamente."
-                : "¿Estás seguro de que querés cancelar tu suscripción?"}
+                ? result.alreadyUnsubscribed
+                  ? "Ya estabas dado de baja. No recibirás más correos."
+                  : "Tu suscripción ha sido cancelada correctamente."
+                : errorMessage}
             </CardDescription>
           </div>
         </CardHeader>
@@ -55,19 +81,9 @@ export default async function UnsubscribePage({ params, searchParams }: Unsubscr
               contactanos para reactivar tu suscripción.
             </p>
           ) : (
-            <form action="/api/unsubscribe" method="POST" className="space-y-3">
-              <input type="hidden" name="token" value={token} />
-              {errorMessage ? (
-                <p className="text-sm text-red-300 text-center">{errorMessage}</p>
-              ) : null}
-              <Button
-                type="submit"
-                className="w-full bg-red-600 hover:bg-red-700 text-white"
-                disabled={!!errorMessage}
-              >
-                Confirmar cancelación
-              </Button>
-            </form>
+            <p className="text-center text-sm text-slate-500">
+              Si creés que esto es un error, contactanos para ayudarte.
+            </p>
           )}
         </CardContent>
       </Card>

@@ -1,19 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { unsubscribeByToken, UnsubscribeError } from "@/server/services/UnsubscribeService";
 
 type UnsubscribeBody = { token: string };
 
-function toRedirectUrl(request: NextRequest, token: string, params: Record<string, string>) {
-  const url = new URL(`/u/${encodeURIComponent(token)}`, request.url);
-  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-  return url;
-}
-
-function toSafeErrorRedirect(request: NextRequest) {
-  // Cuando el token viene vacío/ausente no tenemos a dónde volver.
-  return new URL("/u/invalid?error=invalid_token", request.url);
-}
-
+/**
+ * POST /api/unsubscribe
+ *
+ * Endpoint de compatibilidad: recibe un token y redirige a la página pública
+ * que procesa la baja en 1 click. Útil para formularios legacy o integraciones.
+ */
 export async function POST(request: NextRequest) {
   const contentType = request.headers.get("content-type") ?? "";
 
@@ -32,21 +26,12 @@ export async function POST(request: NextRequest) {
 
   const token = body?.token?.trim();
   if (!token) {
-    return NextResponse.redirect(toSafeErrorRedirect(request));
+    // Redirigir a página de error cuando no hay token
+    const invalidUrl = new URL("/u/invalid", request.url);
+    return NextResponse.redirect(invalidUrl);
   }
 
-  try {
-    await unsubscribeByToken(token);
-    return NextResponse.redirect(toRedirectUrl(request, token, { success: "true" }));
-  } catch (err) {
-    if (err instanceof UnsubscribeError) {
-      const errorParam =
-        err.code === "expired_token" ? "expired_token" : "invalid_token";
-      return NextResponse.redirect(toRedirectUrl(request, token, { error: errorParam }));
-    }
-
-    // Si falla la DB, preferimos no revelar nada y dar un error genérico.
-    return NextResponse.redirect(toRedirectUrl(request, token, { error: "server_error" }));
-  }
+  // Redirigir a la página pública que procesa la baja en 1 click
+  const unsubscribeUrl = new URL(`/u/${encodeURIComponent(token)}`, request.url);
+  return NextResponse.redirect(unsubscribeUrl);
 }
-

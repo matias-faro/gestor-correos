@@ -58,11 +58,23 @@ cp env.example .env.local
    - `QSTASH_CURRENT_SIGNING_KEY`
    - `QSTASH_NEXT_SIGNING_KEY`
 
-### 6. Ejecutar migraciones
+### 6. Configurar Unsubscribe
+
+Para que funcione el sistema de baja de suscriptores:
+
+1. Generá una clave secreta para firmar tokens:
+   ```bash
+   openssl rand -base64 32
+   ```
+2. Agregá las variables:
+   - `UNSUBSCRIBE_TOKEN_SECRET`: la clave generada (obligatoria)
+   - `NEXT_PUBLIC_SITE_URL`: URL pública de la app (ej: `https://tu-dominio.com`)
+
+### 7. Ejecutar migraciones
 
 Ejecutá los archivos SQL en `supabase/migrations/` desde el SQL Editor de Supabase (en orden).
 
-### 7. Ejecutar la app
+### 8. Ejecutar la app
 
 ```bash
 pnpm install
@@ -106,8 +118,28 @@ supabase/
 - **Fase 3**: Plantillas HTML + preview
 - **Fase 4**: Campañas + snapshot + pruebas
 - **Fase 5**: QStash + SendTick + envío con Gmail API
+- **Fase 6**: Unsubscribe público (1 click)
 
 ## Próximas fases
 
-- **Fase 6**: Unsubscribe público
 - **Fase 7**: Rebotes + supresión
+
+## Unsubscribe público
+
+El sistema incluye una página pública para que los contactos cancelen su suscripción en 1 click.
+
+### Flujo
+
+1. Cada correo enviado incluye un link firmado: `/u/{token}`
+2. Al abrir el link, el contacto queda **dado de baja automáticamente** (idempotente)
+3. Se muestra una página de confirmación
+
+### Rutas públicas
+
+- `/u/[token]`: Procesa la baja y muestra el resultado
+- `/u/invalid`: Página de error para tokens inválidos o ausentes
+
+### Variables requeridas
+
+- `UNSUBSCRIBE_TOKEN_SECRET`: Clave para firmar tokens (generá con `openssl rand -base64 32`)
+- `NEXT_PUBLIC_SITE_URL`: URL pública de la app para construir los links

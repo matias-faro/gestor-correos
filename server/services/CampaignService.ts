@@ -80,7 +80,7 @@ function buildUnsubscribeUrl(input: {
     email: input.email,
     campaignId: input.campaignId,
   });
-  return `${getSiteUrl()}/u/${token}`;
+  return `${getSiteUrl()}/u/${encodeURIComponent(token)}`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
