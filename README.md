@@ -24,8 +24,8 @@ cp env.example .env.local
 1. Creá un proyecto en [Supabase](https://supabase.com)
 2. Obtené las credenciales desde Settings > API:
    - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (publishable key - para el cliente)
+   - `SUPABASE_SECRET_KEY` (secret key - para el servidor)
 
 ### 3. Configurar Google OAuth
 
