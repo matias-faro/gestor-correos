@@ -157,6 +157,18 @@ export function TemplatePreview({
               />
             )}
           </div>
+
+          {/* Footer con botón cerrar */}
+          <div className="flex justify-end pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white"
+            >
+              Cerrar
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

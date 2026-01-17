@@ -361,13 +361,15 @@ export function SettingsPage({ initialSettings }: SettingsPageProps) {
           </div>
           <DialogFooter>
             <Button
+              type="button"
               variant="ghost"
               onClick={() => setLimitsDialogOpen(false)}
-              className="text-slate-400"
+              className="text-slate-400 hover:text-white"
             >
               Cancelar
             </Button>
             <Button
+              type="button"
               onClick={handleSaveLimits}
               disabled={saving}
               className="bg-emerald-600 hover:bg-emerald-700"
@@ -405,13 +407,15 @@ export function SettingsPage({ initialSettings }: SettingsPageProps) {
           </div>
           <DialogFooter>
             <Button
+              type="button"
               variant="ghost"
               onClick={() => setSignatureDialogOpen(false)}
-              className="text-slate-400"
+              className="text-slate-400 hover:text-white"
             >
               Cancelar
             </Button>
             <Button
+              type="button"
               onClick={handleSaveSignature}
               disabled={saving}
               className="bg-violet-600 hover:bg-violet-700"
@@ -467,13 +471,15 @@ export function SettingsPage({ initialSettings }: SettingsPageProps) {
           </div>
           <DialogFooter>
             <Button
+              type="button"
               variant="ghost"
               onClick={() => setAllowlistDialogOpen(false)}
-              className="text-slate-400"
+              className="text-slate-400 hover:text-white"
             >
               Cancelar
             </Button>
             <Button
+              type="button"
               onClick={handleSaveAllowlist}
               disabled={saving}
               className="bg-amber-600 hover:bg-amber-700"

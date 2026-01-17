@@ -89,7 +89,8 @@ export function TemplatesPage() {
         toast.success("Plantilla creada");
       }
       setDialogOpen(false);
-      loadTemplates();
+      setEditingTemplate(null);
+      await loadTemplates();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al guardar");
     } finally {

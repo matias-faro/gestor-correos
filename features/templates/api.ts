@@ -12,7 +12,7 @@ const API_BASE = "/api";
 // ─────────────────────────────────────────────────────────────────────────────
 export async function fetchTemplates(query?: string): Promise<Template[]> {
   const params = query ? `?query=${encodeURIComponent(query)}` : "";
-  const res = await fetch(`${API_BASE}/templates${params}`);
+  const res = await fetch(`${API_BASE}/templates${params}`, { cache: "no-store" });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.error ?? "Error al cargar plantillas");

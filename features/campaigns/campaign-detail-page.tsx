@@ -435,6 +435,7 @@ export function CampaignDetailPage({ campaignId }: CampaignDetailPageProps) {
 
         <div className="flex gap-2">
           <Button
+            type="button"
             variant="outline"
             onClick={() => setTestSendDialogOpen(true)}
             className="border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800"
@@ -603,6 +604,7 @@ export function CampaignDetailPage({ campaignId }: CampaignDetailPageProps) {
                   />
                 </div>
                 <Button
+                  type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => setIncludeDialogOpen(true)}

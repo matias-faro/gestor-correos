@@ -813,7 +813,25 @@ export async function processSendTick(
       gmailPermalink: sendResult.permalink,
     });
 
-    // Programar siguiente tick
+    // Verificar si quedan más emails pendientes
+    const nextPending = await getNextPendingDraftItem(campaignId);
+    
+    if (!nextPending) {
+      // No hay más pendientes, completar la campaña inmediatamente
+      await updateSendRunStatus(sendRunId, "completed", new Date().toISOString());
+      await updateCampaignStatus(campaignId, "completed");
+      await releaseCampaignLock(campaignId);
+
+      console.log(`[CampaignService] Campaign ${campaignId} completed after sending to ${draftItem.toEmail}`);
+
+      return {
+        action: "sent",
+        draftItemId: draftItem.id,
+        toEmail: draftItem.toEmail,
+      };
+    }
+
+    // Hay más pendientes, programar siguiente tick
     const nextTickTime = new Date(Date.now() + nextTick.delaySeconds * 1000);
     await updateSendRunNextTick(sendRunId, nextTickTime.toISOString());
 
@@ -841,18 +859,36 @@ export async function processSendTick(
       error: errorMessage,
     });
 
+    // Log del error
+    console.error(
+      `[CampaignService] Error enviando a ${draftItem.toEmail}:`,
+      errorMessage
+    );
+
+    // Verificar si quedan más emails pendientes después del fallo
+    const nextPending = await getNextPendingDraftItem(campaignId);
+    
+    if (!nextPending) {
+      // No hay más pendientes (todos enviados o fallidos), completar la campaña
+      await updateSendRunStatus(sendRunId, "completed", new Date().toISOString());
+      await updateCampaignStatus(campaignId, "completed");
+      await releaseCampaignLock(campaignId);
+
+      console.log(`[CampaignService] Campaign ${campaignId} completed (last item failed)`);
+
+      return {
+        action: "sent",
+        draftItemId: draftItem.id,
+        toEmail: draftItem.toEmail,
+      };
+    }
+
     // Continuar con el siguiente (programar tick)
     await scheduleSendTick({
       campaignId,
       sendRunId,
       delaySeconds: settings.minDelaySeconds,
     });
-
-    // Log del error
-    console.error(
-      `[CampaignService] Error enviando a ${draftItem.toEmail}:`,
-      errorMessage
-    );
 
     return {
       action: "sent",
