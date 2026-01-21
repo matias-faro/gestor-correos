@@ -25,7 +25,7 @@ function LoginContent() {
       options: {
         redirectTo: `${window.location.origin}/api/auth/callback`,
         scopes:
-          "https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify",
+          "https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/spreadsheets.readonly https://www.googleapis.com/auth/drive.metadata.readonly",
         queryParams: {
           access_type: "offline",
           prompt: "consent",

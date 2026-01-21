@@ -33,7 +33,13 @@ export async function GET(request: Request) {
           token_expiry: session.expires_at
             ? new Date(session.expires_at * 1000).toISOString()
             : null,
-          scopes: ["gmail.send", "gmail.readonly", "gmail.modify"],
+          scopes: [
+            "gmail.send",
+            "gmail.readonly",
+            "gmail.modify",
+            "spreadsheets.readonly",
+            "drive.metadata.readonly",
+          ],
           updated_at: new Date().toISOString(),
         };
 

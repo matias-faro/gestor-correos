@@ -8,6 +8,7 @@ export const contactsFiltersSchema = z.object({
   company: z.string().optional(),
   position: z.string().optional(),
   tagIds: z.array(z.string().uuid()).optional(),
+  sourceId: z.string().uuid().optional(),
   includeUnsubscribed: z.boolean().optional().default(false),
   includeSuppressed: z.boolean().optional().default(false),
   limit: z.coerce.number().int().min(1).max(100).optional().default(50),

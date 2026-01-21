@@ -22,6 +22,7 @@ export type Settings = {
   signatureDefaultHtml: string | null;
   allowlistEmails: string[];
   allowlistDomains: string[];
+  activeContactSourceId: string | null;
 };
 
 export type UpdateSettingsInput = Partial<{
@@ -32,4 +33,23 @@ export type UpdateSettingsInput = Partial<{
   signatureDefaultHtml: string | null;
   allowlistEmails: string[];
   allowlistDomains: string[];
+  activeContactSourceId: string | null;
 }>;
+
+export type ContactSource = {
+  id: string;
+  name: string;
+  spreadsheetId: string;
+  sheetTab: string;
+  googleAccountId: string | null;
+  lastSyncedAt: string | null;
+  lastSyncStatus: string | null;
+  lastSyncError: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SpreadsheetInfo = {
+  id: string;
+  name: string;
+};

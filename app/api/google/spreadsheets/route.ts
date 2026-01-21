@@ -1,0 +1,33 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getAuthorizedUser } from "@/server/auth/session";
+import { getGoogleAccountByUserId } from "@/server/integrations/db/google-accounts-repo";
+import { listSpreadsheets } from "@/server/integrations/google/drive";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/google/spreadsheets - Listar spreadsheets accesibles
+// ─────────────────────────────────────────────────────────────────────────────
+export async function GET(request: NextRequest) {
+  try {
+    const user = await getAuthorizedUser();
+    const { searchParams } = new URL(request.url);
+    const query = searchParams.get("q") ?? undefined;
+
+    const account = await getGoogleAccountByUserId(user.id);
+    if (!account) {
+      return NextResponse.json(
+        { error: "No hay cuenta de Google vinculada" },
+        { status: 400 }
+      );
+    }
+
+    const spreadsheets = await listSpreadsheets(account.id, {
+      query,
+      maxItems: 200,
+    });
+
+    return NextResponse.json({ spreadsheets });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Error desconocido";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

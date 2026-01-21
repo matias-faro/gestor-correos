@@ -27,6 +27,7 @@ export type Settings = {
   signatureDefaultHtml: string | null;
   allowlistEmails: string[];
   allowlistDomains: string[];
+  activeContactSourceId: string | null;
 };
 
 type DbSettings = {
@@ -38,6 +39,7 @@ type DbSettings = {
   signature_default_html: string | null;
   allowlist_emails: string[] | null;
   allowlist_domains: string[] | null;
+  active_contact_source_id: string | null;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -53,6 +55,7 @@ function mapSettings(data: DbSettings): Settings {
     signatureDefaultHtml: data.signature_default_html,
     allowlistEmails: data.allowlist_emails ?? [],
     allowlistDomains: data.allowlist_domains ?? [],
+    activeContactSourceId: data.active_contact_source_id,
   };
 }
 
@@ -86,6 +89,7 @@ export type UpdateSettingsInput = Partial<{
   signatureDefaultHtml: string | null;
   allowlistEmails: string[];
   allowlistDomains: string[];
+  activeContactSourceId: string | null;
 }>;
 
 export async function updateSettings(input: UpdateSettingsInput): Promise<Settings> {
@@ -113,6 +117,9 @@ export async function updateSettings(input: UpdateSettingsInput): Promise<Settin
   }
   if (input.allowlistDomains !== undefined) {
     updateData.allowlist_domains = input.allowlistDomains;
+  }
+  if (input.activeContactSourceId !== undefined) {
+    updateData.active_contact_source_id = input.activeContactSourceId;
   }
 
   updateData.updated_at = new Date().toISOString();

@@ -59,6 +59,13 @@ export async function PATCH(request: NextRequest) {
       input.sendWindows = body.sendWindows;
     }
 
+    if (
+      typeof body.activeContactSourceId === "string" ||
+      body.activeContactSourceId === null
+    ) {
+      input.activeContactSourceId = body.activeContactSourceId || null;
+    }
+
     const updated = await updateSettings(input);
     return NextResponse.json(updated);
   } catch (err) {

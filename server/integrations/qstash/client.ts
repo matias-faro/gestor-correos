@@ -1,5 +1,6 @@
 import { Client } from "@upstash/qstash";
 import type { SendTickPayload } from "@/server/contracts/campaigns";
+import type { SyncContactsPayload } from "@/server/contracts/contact-sources";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Obtener cliente QStash
@@ -77,6 +78,33 @@ export async function scheduleSendTickAt(options: {
   const response = await client.publishJSON({
     url: `${baseUrl}/api/jobs/send-tick`,
     body: payload,
+    delay: delaySeconds,
+    retries: 3,
+  });
+
+  return { messageId: response.messageId };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Programar sincronización de contactos (Google Sheets)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function scheduleContactSync(options: {
+  sourceId: string;
+  startRow: number;
+  batchSize: number;
+  syncStartedAt: string;
+  delaySeconds?: number;
+}): Promise<{ messageId: string }> {
+  const { delaySeconds = 0, ...payload } = options;
+
+  const client = getQStashClient();
+  const baseUrl = getBaseUrl();
+
+  const body: SyncContactsPayload = payload;
+
+  const response = await client.publishJSON({
+    url: `${baseUrl}/api/jobs/sync-contacts`,
+    body,
     delay: delaySeconds,
     retries: 3,
   });

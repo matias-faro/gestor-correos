@@ -27,6 +27,7 @@ export type ContactsFilters = {
   company?: string;
   position?: string;
   tagIds?: string[];
+  sourceId?: string;
   includeUnsubscribed?: boolean;
   includeSuppressed?: boolean;
   limit?: number;
@@ -38,6 +39,11 @@ export type ContactsListResponse = {
   total: number;
   limit: number;
   offset: number;
+};
+
+export type ContactSourceOption = {
+  id: string;
+  name: string;
 };
 
 export type TagsListResponse = {

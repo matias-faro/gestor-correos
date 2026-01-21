@@ -20,8 +20,9 @@ import {
   createContact,
   updateContact,
   deleteContact,
+  fetchContactSources,
 } from "./api";
-import type { Contact, ContactsFilters } from "./types";
+import type { Contact, ContactSourceOption, ContactsFilters } from "./types";
 
 const PAGE_SIZE = 25;
 
@@ -29,6 +30,8 @@ export function ContactsPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [sources, setSources] = useState<ContactSourceOption[]>([]);
+  const [sourcesLoading, setSourcesLoading] = useState(true);
   const [filters, setFilters] = useState<ContactsFilters>({
     query: "",
     company: "",
@@ -66,6 +69,23 @@ export function ContactsPage() {
   useEffect(() => {
     loadContacts();
   }, [loadContacts]);
+
+  useEffect(() => {
+    const loadSources = async () => {
+      setSourcesLoading(true);
+      try {
+        const data = await fetchContactSources();
+        setSources(data);
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Error al cargar fuentes"
+        );
+      } finally {
+        setSourcesLoading(false);
+      }
+    };
+    loadSources();
+  }, []);
 
   // Handlers
   const handleFiltersChange = (newFilters: ContactsFilters) => {
@@ -161,7 +181,11 @@ export function ContactsPage() {
       </div>
 
       {/* Filters */}
-      <ContactsFiltersPanel filters={filters} onChange={handleFiltersChange} />
+      <ContactsFiltersPanel
+        filters={filters}
+        onChange={handleFiltersChange}
+        sources={sourcesLoading ? [] : sources}
+      />
 
       {/* Table */}
       <ContactsTable

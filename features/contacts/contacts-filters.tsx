@@ -6,16 +6,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { IconSearch, IconX } from "@tabler/icons-react";
 import { TagMultiselect } from "./tag-multiselect";
-import type { ContactsFilters } from "./types";
+import type { ContactSourceOption, ContactsFilters } from "./types";
 
 type ContactsFiltersProps = {
   filters: ContactsFilters;
   onChange: (filters: ContactsFilters) => void;
+  sources: ContactSourceOption[];
 };
 
 export function ContactsFiltersPanel({
   filters,
   onChange,
+  sources,
 }: ContactsFiltersProps) {
   const handleReset = () => {
     onChange({
@@ -23,6 +25,7 @@ export function ContactsFiltersPanel({
       company: "",
       position: "",
       tagIds: [],
+      sourceId: undefined,
       includeUnsubscribed: false,
       includeSuppressed: false,
     });
@@ -33,6 +36,7 @@ export function ContactsFiltersPanel({
     filters.company ||
     filters.position ||
     (filters.tagIds && filters.tagIds.length > 0) ||
+    filters.sourceId ||
     filters.includeUnsubscribed ||
     filters.includeSuppressed;
 
@@ -51,6 +55,28 @@ export function ContactsFiltersPanel({
 
       {/* Filtros en grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {/* Fuente */}
+        <div className="space-y-1.5">
+          <Label className="text-xs text-slate-400">Fuente</Label>
+          <select
+            value={filters.sourceId ?? ""}
+            onChange={(e) =>
+              onChange({
+                ...filters,
+                sourceId: e.target.value || undefined,
+              })
+            }
+            className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200"
+          >
+            <option value="">Todas las fuentes</option>
+            {sources.map((source) => (
+              <option key={source.id} value={source.id}>
+                {source.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
         {/* Empresa */}
         <div className="space-y-1.5">
           <Label className="text-xs text-slate-400">Empresa</Label>

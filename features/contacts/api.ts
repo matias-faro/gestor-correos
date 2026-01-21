@@ -1,5 +1,6 @@
 import type {
   Contact,
+  ContactSourceOption,
   ContactsFilters,
   ContactsListResponse,
   Tag,
@@ -22,6 +23,7 @@ export async function fetchContacts(
   if (filters.position) params.set("position", filters.position);
   if (filters.includeUnsubscribed) params.set("includeUnsubscribed", "true");
   if (filters.includeSuppressed) params.set("includeSuppressed", "true");
+  if (filters.sourceId) params.set("sourceId", filters.sourceId);
   if (filters.limit) params.set("limit", String(filters.limit));
   if (filters.offset) params.set("offset", String(filters.offset));
   if (filters.tagIds && filters.tagIds.length > 0) {
@@ -88,6 +90,16 @@ export async function deleteContact(id: string): Promise<void> {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.error ?? "Error al eliminar contacto");
   }
+}
+
+export async function fetchContactSources(): Promise<ContactSourceOption[]> {
+  const res = await fetch(`${API_BASE}/contact-sources`);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error ?? "Error al cargar fuentes");
+  }
+  const data = (await res.json()) as { sources: ContactSourceOption[] };
+  return data.sources.map((source) => ({ id: source.id, name: source.name }));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

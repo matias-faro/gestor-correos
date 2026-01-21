@@ -150,11 +150,13 @@ export async function generateSnapshot(
 
   // Obtener contactos del segmento
   const filters: CampaignFilters = campaign.filtersSnapshot ?? {};
+  const settings = await getSettings();
   const { contacts, capped } = await listContactsForSnapshot({
     query: filters.query,
     company: filters.company,
     position: filters.position,
     tagIds: filters.tagIds,
+    sourceId: settings.activeContactSourceId ?? undefined,
   });
 
   if (contacts.length === 0) {

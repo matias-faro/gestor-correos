@@ -23,6 +23,10 @@ type DbContact = {
   updated_at: string;
 };
 
+type DbContactInSource = DbContact & {
+  source_id: string;
+};
+
 type DbTag = {
   id: string;
   name: string;
@@ -62,6 +66,13 @@ export async function listContacts(
 
   // Base query
   let query = supabase.from("contacts").select("*", { count: "exact" });
+
+  if (filters.sourceId) {
+    query = supabase
+      .from("contacts_in_source")
+      .select("*", { count: "exact" })
+      .eq("source_id", filters.sourceId);
+  }
 
   // Filtro texto (email, first_name, last_name)
   if (filters.query) {
@@ -111,7 +122,7 @@ export async function listContacts(
     throw new Error(`Error al listar contactos: ${error.message}`);
   }
 
-  const contacts = data as DbContact[];
+  const contacts = data as DbContact[] | DbContactInSource[];
   const contactIds = contacts.map((c) => c.id);
 
   // Obtener tags de todos los contactos en una sola query
@@ -407,6 +418,7 @@ export type SnapshotFilters = {
   company?: string;
   position?: string;
   tagIds?: string[];
+  sourceId?: string;
 };
 
 const SNAPSHOT_CAP = 20000;
@@ -422,6 +434,15 @@ export async function listContactsForSnapshot(
     .select("id, email, first_name, last_name, company")
     .eq("subscription_status", "active")
     .eq("suppression_status", "none");
+
+  if (filters.sourceId) {
+    query = supabase
+      .from("contacts_in_source")
+      .select("id, email, first_name, last_name, company")
+      .eq("source_id", filters.sourceId)
+      .eq("subscription_status", "active")
+      .eq("suppression_status", "none");
+  }
 
   // Filtro texto
   if (filters.query) {

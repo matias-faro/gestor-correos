@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   Card,
@@ -29,8 +29,14 @@ import {
   IconPencil,
   IconLoader2,
 } from "@tabler/icons-react";
-import type { Settings } from "./types";
-import { updateSettings } from "./api";
+import type { ContactSource, Settings, SpreadsheetInfo } from "./types";
+import {
+  createContactSource,
+  fetchContactSources,
+  fetchSpreadsheets,
+  syncContactSource,
+  updateSettings,
+} from "./api";
 
 type SettingsPageProps = {
   initialSettings: Settings;
@@ -39,11 +45,14 @@ type SettingsPageProps = {
 export function SettingsPage({ initialSettings }: SettingsPageProps) {
   const [settings, setSettings] = useState(initialSettings);
   const [saving, setSaving] = useState(false);
+  const [sourceSaving, setSourceSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   // Dialog states
   const [limitsDialogOpen, setLimitsDialogOpen] = useState(false);
   const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
   const [allowlistDialogOpen, setAllowlistDialogOpen] = useState(false);
+  const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
 
   // Form states
   const [dailyQuota, setDailyQuota] = useState(settings.dailyQuota.toString());
@@ -54,6 +63,35 @@ export function SettingsPage({ initialSettings }: SettingsPageProps) {
   );
   const [allowlistDomains, setAllowlistDomains] = useState(
     settings.allowlistDomains.join("\n")
+  );
+
+  // Contact sources
+  const [sources, setSources] = useState<ContactSource[]>([]);
+  const [sourcesLoading, setSourcesLoading] = useState(false);
+  const [spreadsheetQuery, setSpreadsheetQuery] = useState("");
+  const [spreadsheets, setSpreadsheets] = useState<SpreadsheetInfo[]>([]);
+  const [spreadsheetsLoading, setSpreadsheetsLoading] = useState(false);
+  const [selectedSpreadsheet, setSelectedSpreadsheet] =
+    useState<SpreadsheetInfo | null>(null);
+  const [sourceName, setSourceName] = useState("");
+
+  useEffect(() => {
+    const loadSources = async () => {
+      setSourcesLoading(true);
+      try {
+        const data = await fetchContactSources();
+        setSources(data);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Error al cargar fuentes");
+      } finally {
+        setSourcesLoading(false);
+      }
+    };
+    loadSources();
+  }, []);
+
+  const activeSource = sources.find(
+    (source) => source.id === settings.activeContactSourceId
   );
 
   // Format send windows for display
@@ -135,6 +173,77 @@ export function SettingsPage({ initialSettings }: SettingsPageProps) {
       toast.error(err instanceof Error ? err.message : "Error al guardar");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleActiveSourceChange = async (value: string) => {
+    setSourceSaving(true);
+    try {
+      const updated = await updateSettings({
+        activeContactSourceId: value || null,
+      });
+      setSettings(updated);
+      toast.success("Fuente activa actualizada");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al guardar");
+    } finally {
+      setSourceSaving(false);
+    }
+  };
+
+  const handleSearchSpreadsheets = async () => {
+    setSpreadsheetsLoading(true);
+    try {
+      const results = await fetchSpreadsheets(spreadsheetQuery.trim() || undefined);
+      setSpreadsheets(results);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al buscar sheets");
+    } finally {
+      setSpreadsheetsLoading(false);
+    }
+  };
+
+  const handleCreateSource = async () => {
+    if (!selectedSpreadsheet) {
+      toast.error("Seleccioná un spreadsheet");
+      return;
+    }
+    setSourceSaving(true);
+    try {
+      const created = await createContactSource({
+        name: sourceName.trim() || selectedSpreadsheet.name,
+        spreadsheetId: selectedSpreadsheet.id,
+      });
+      const updatedSources = await fetchContactSources();
+      setSources(updatedSources);
+      setSourceDialogOpen(false);
+      setSelectedSpreadsheet(null);
+      setSourceName("");
+      setSpreadsheetQuery("");
+      setSpreadsheets([]);
+      toast.success(`Fuente creada: ${created.name}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al crear fuente");
+    } finally {
+      setSourceSaving(false);
+    }
+  };
+
+  const handleSyncActiveSource = async () => {
+    if (!settings.activeContactSourceId) {
+      toast.error("Seleccioná una fuente activa");
+      return;
+    }
+    setSyncing(true);
+    try {
+      await syncContactSource(settings.activeContactSourceId);
+      const updatedSources = await fetchContactSources();
+      setSources(updatedSources);
+      toast.success("Sincronización iniciada");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al sincronizar");
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -317,6 +426,101 @@ export function SettingsPage({ initialSettings }: SettingsPageProps) {
             )}
           </CardContent>
         </Card>
+
+        {/* Base de datos (Google Sheets) */}
+        <Card className="border-slate-800 bg-slate-900/50">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-cyan-500/10 p-2">
+                  <IconSettings className="h-5 w-5 text-cyan-400" stroke={1.5} />
+                </div>
+                <div>
+                  <CardTitle className="text-white">
+                    Base de datos (Google Sheets)
+                  </CardTitle>
+                  <CardDescription className="text-slate-400">
+                    Elegí la fuente activa y sincronizá contactos
+                  </CardDescription>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSourceDialogOpen(true);
+                  setSelectedSpreadsheet(null);
+                  setSourceName("");
+                  setSpreadsheetQuery("");
+                  setSpreadsheets([]);
+                }}
+                className="text-slate-300 hover:text-white"
+              >
+                Agregar BD
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-slate-300">Fuente activa</Label>
+              <select
+                className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200"
+                value={settings.activeContactSourceId ?? ""}
+                onChange={(e) => handleActiveSourceChange(e.target.value)}
+                disabled={sourceSaving || sourcesLoading}
+              >
+                <option value="">Sin fuente activa</option>
+                {sources.map((source) => (
+                  <option key={source.id} value={source.id}>
+                    {source.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3 text-sm">
+              {activeSource ? (
+                <div className="space-y-2 text-slate-300">
+                  <div>
+                    <span className="text-slate-500">Sheet:</span>{" "}
+                    {activeSource.name}
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Último sync:</span>{" "}
+                    {activeSource.lastSyncedAt
+                      ? new Date(activeSource.lastSyncedAt).toLocaleString()
+                      : "Nunca"}
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Estado:</span>{" "}
+                    {activeSource.lastSyncStatus ?? "Sin estado"}
+                  </div>
+                  {activeSource.lastSyncError ? (
+                    <div className="text-red-400">
+                      {activeSource.lastSyncError}
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="text-slate-500">
+                  Seleccioná una fuente activa para ver su estado.
+                </div>
+              )}
+            </div>
+
+            <Button
+              type="button"
+              onClick={handleSyncActiveSource}
+              disabled={syncing || !settings.activeContactSourceId}
+              className="bg-cyan-600 hover:bg-cyan-700"
+            >
+              {syncing ? (
+                <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Sincronizar ahora
+            </Button>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Dialog: Límites de envío */}
@@ -488,6 +692,102 @@ export function SettingsPage({ initialSettings }: SettingsPageProps) {
                 <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : null}
               Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Agregar fuente */}
+      <Dialog open={sourceDialogOpen} onOpenChange={setSourceDialogOpen}>
+        <DialogContent className="border-slate-800 bg-slate-950 sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-white">Agregar fuente</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Buscá un spreadsheet y asignale un nombre interno.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid gap-2">
+              <Label className="text-slate-300">Buscar spreadsheet</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={spreadsheetQuery}
+                  onChange={(e) => setSpreadsheetQuery(e.target.value)}
+                  placeholder="Nombre del spreadsheet"
+                  className="border-slate-700 bg-slate-900 text-slate-200"
+                />
+                <Button
+                  type="button"
+                  onClick={handleSearchSpreadsheets}
+                  disabled={spreadsheetsLoading}
+                  className="bg-slate-800 hover:bg-slate-700"
+                >
+                  {spreadsheetsLoading ? (
+                    <IconLoader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Buscar"
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            <div className="max-h-48 overflow-auto rounded-md border border-slate-800">
+              {spreadsheets.length === 0 ? (
+                <div className="p-3 text-sm text-slate-500">
+                  No hay resultados.
+                </div>
+              ) : (
+                spreadsheets.map((sheet) => (
+                  <button
+                    key={sheet.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedSpreadsheet(sheet);
+                      setSourceName(sheet.name);
+                    }}
+                    className={`w-full px-3 py-2 text-left text-sm transition ${
+                      selectedSpreadsheet?.id === sheet.id
+                        ? "bg-slate-800 text-white"
+                        : "text-slate-300 hover:bg-slate-900"
+                    }`}
+                  >
+                    {sheet.name}
+                  </button>
+                ))
+              )}
+            </div>
+
+            <div className="grid gap-2">
+              <Label className="text-slate-300">Nombre interno</Label>
+              <Input
+                value={sourceName}
+                onChange={(e) => setSourceName(e.target.value)}
+                placeholder="Nombre para identificar la BD"
+                className="border-slate-700 bg-slate-900 text-slate-200"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setSourceDialogOpen(false)}
+              className="text-slate-400 hover:text-white"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleCreateSource}
+              disabled={sourceSaving}
+              className="bg-cyan-600 hover:bg-cyan-700"
+            >
+              {sourceSaving ? (
+                <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Crear fuente
             </Button>
           </DialogFooter>
         </DialogContent>

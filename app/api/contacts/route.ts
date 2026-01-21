@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
     company: searchParams.get("company") ?? undefined,
     position: searchParams.get("position") ?? undefined,
     tagIds: tagIds.length > 0 ? tagIds : undefined,
+    sourceId: searchParams.get("sourceId") ?? undefined,
     includeUnsubscribed: searchParams.get("includeUnsubscribed") === "true",
     includeSuppressed: searchParams.get("includeSuppressed") === "true",
     limit: searchParams.get("limit") ?? undefined,
