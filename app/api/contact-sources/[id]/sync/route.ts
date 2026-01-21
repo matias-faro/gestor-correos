@@ -8,12 +8,13 @@ import { scheduleContactSync } from "@/server/integrations/qstash/client";
 // ─────────────────────────────────────────────────────────────────────────────
 export async function POST(
   _request: NextRequest,
-  context: { params: { id?: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     await getAuthorizedUser();
 
-    const parsed = contactSourceIdSchema.safeParse({ id: context.params.id });
+    const { id } = await context.params;
+    const parsed = contactSourceIdSchema.safeParse({ id });
     if (!parsed.success) {
       return NextResponse.json(
         { error: "ID inválido", details: parsed.error.format() },

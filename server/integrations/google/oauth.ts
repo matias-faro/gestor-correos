@@ -1,5 +1,4 @@
-import { google } from "googleapis";
-import type { OAuth2Client } from "google-auth-library";
+import { google, type Auth } from "googleapis";
 import {
   getGoogleAccountById,
   updateGoogleAccountTokens,
@@ -8,7 +7,7 @@ import {
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuración OAuth
 // ─────────────────────────────────────────────────────────────────────────────
-function createOAuth2Client(): OAuth2Client {
+function createOAuth2Client(): Auth.OAuth2Client {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
@@ -26,7 +25,7 @@ function createOAuth2Client(): OAuth2Client {
 // ─────────────────────────────────────────────────────────────────────────────
 export async function getGoogleOAuthClient(
   googleAccountId: string
-): Promise<OAuth2Client> {
+): Promise<Auth.OAuth2Client> {
   const account = await getGoogleAccountById(googleAccountId);
 
   if (!account) {
