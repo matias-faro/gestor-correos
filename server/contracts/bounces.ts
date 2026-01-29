@@ -15,7 +15,8 @@ export type ListBouncesFilters = z.infer<typeof listBouncesSchema>;
 // ─────────────────────────────────────────────────────────────────────────────
 export const scanBouncesSchema = z.object({
   maxResults: z.coerce.number().int().min(1).max(500).optional().default(100),
-  newerThanDays: z.coerce.number().int().min(1).max(365).optional().default(30),
+  // 0 = sin límite de antigüedad
+  newerThanDays: z.coerce.number().int().min(0).max(3650).optional().default(0),
   trashProcessed: z.boolean().optional().default(true),
 });
 

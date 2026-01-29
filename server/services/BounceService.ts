@@ -47,6 +47,7 @@ export async function scanBounces(
     googleAccountId: googleAccount.id,
     maxResults: input.maxResults,
     newerThanDays: input.newerThanDays,
+    sortOldestFirst: true,
   });
 
   result.scanned = messageIds.length;

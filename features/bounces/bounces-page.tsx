@@ -67,7 +67,7 @@ export function BouncesPage() {
     try {
       const result = await scanBounces({
         maxResults: 100,
-        newerThanDays: 30,
+        newerThanDays: 0,
         trashProcessed: true,
       });
 
