@@ -148,7 +148,13 @@ export function BouncesPage() {
 
       setCleanupDialogOpen(false);
       setSelectedIds(new Set());
-      loadBounces();
+      // Si quedamos parados en una página que puede quedar vacía tras eliminar,
+      // volvemos a la primera página y dejamos que el effect recargue.
+      if (offset !== 0) {
+        setOffset(0);
+      } else {
+        loadBounces();
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al limpiar rebotes");
     } finally {

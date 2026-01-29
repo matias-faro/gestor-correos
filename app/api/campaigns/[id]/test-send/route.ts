@@ -58,7 +58,8 @@ export async function POST(
       const result = await sendTestReal(
         campaignId,
         parsed.data.toEmail,
-        parsed.data.contactId
+        parsed.data.contactId,
+        auth.user.id
       );
       return NextResponse.json({
         success: true,

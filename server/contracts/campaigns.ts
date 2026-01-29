@@ -151,6 +151,7 @@ export type CampaignResponse = {
   fromAlias: string | null;
   signatureHtmlOverride: string | null;
   createdBy: string | null;
+  googleAccountId: string | null;
   activeLock: boolean;
   createdAt: string;
   updatedAt: string;

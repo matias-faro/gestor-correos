@@ -2,6 +2,7 @@ import { getGoogleAccountByUserId } from "@/server/integrations/db/google-accoun
 import {
   hasBounceEventByMessageId,
   getBounceEventsByIds,
+  deleteBounceEventsByIds,
   insertBounceEvent,
 } from "@/server/integrations/db/bounce-events-repo";
 import {
@@ -216,6 +217,17 @@ export async function cleanupBounces(
         const msg = err instanceof Error ? err.message : "Error desconocido";
         result.errors.push({ bounceEventId: bounce.id, error: msg });
       }
+    }
+  }
+
+  // Eliminar registros de bounce_events para que no sigan apareciendo en la UI
+  // (por defecto true).
+  if (input.deleteBounceEvents) {
+    try {
+      await deleteBounceEventsByIds(input.ids);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Error desconocido";
+      result.errors.push({ bounceEventId: "delete-bounce-events", error: msg });
     }
   }
 

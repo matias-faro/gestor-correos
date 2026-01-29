@@ -29,6 +29,9 @@ export const cleanupBouncesSchema = z.object({
   ids: z.array(z.string().min(1)).min(1),
   deleteContacts: z.boolean().optional().default(true),
   trashGmailMessages: z.boolean().optional().default(true),
+  // Si es true, además de borrar contactos / mandar a papelera, se eliminan los
+  // registros de bounce_events para que no sigan apareciendo en la lista.
+  deleteBounceEvents: z.boolean().optional().default(true),
 });
 
 export type CleanupBouncesInput = z.infer<typeof cleanupBouncesSchema>;

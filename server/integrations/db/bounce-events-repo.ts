@@ -142,3 +142,24 @@ export async function getBounceEventsByIds(
 
   return (data as DbBounceEvent[]).map(mapBounceEvent);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Eliminar bounce events por ids (para acciones masivas)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function deleteBounceEventsByIds(ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0;
+
+  const supabase = await createServiceClient();
+
+  const { data, error } = await supabase
+    .from("bounce_events")
+    .delete()
+    .in("id", ids)
+    .select("id");
+
+  if (error) {
+    throw new Error(`Error al eliminar bounce events: ${error.message}`);
+  }
+
+  return data?.length ?? 0;
+}

@@ -21,6 +21,7 @@ type DbCampaign = {
   from_alias: string | null;
   signature_html_override: string | null;
   created_by: string | null;
+  google_account_id: string | null;
   active_lock: boolean;
   created_at: string;
   updated_at: string;
@@ -47,6 +48,7 @@ function mapCampaign(
     fromAlias: campaign.from_alias,
     signatureHtmlOverride: campaign.signature_html_override,
     createdBy: campaign.created_by,
+    googleAccountId: campaign.google_account_id,
     activeLock: campaign.active_lock,
     createdAt: campaign.created_at,
     updatedAt: campaign.updated_at,
@@ -202,7 +204,7 @@ export async function getCampaignById(
 // ─────────────────────────────────────────────────────────────────────────────
 export async function createCampaign(
   input: CreateCampaignInput,
-  createdByUserId?: string
+  options?: { createdByUserId?: string; googleAccountId?: string | null }
 ): Promise<CampaignResponse> {
   const supabase = await createServiceClient();
 
@@ -214,7 +216,8 @@ export async function createCampaign(
       filters_snapshot: input.filters ?? {},
       from_alias: input.fromAlias ?? null,
       signature_html_override: input.signatureHtmlOverride ?? null,
-      created_by: createdByUserId ?? null,
+      created_by: options?.createdByUserId ?? null,
+      google_account_id: options?.googleAccountId ?? null,
       status: "draft",
       active_lock: false,
     })
@@ -227,6 +230,25 @@ export async function createCampaign(
 
   const campaign = data as DbCampaignWithTemplate;
   return mapCampaign(campaign, campaign.templates?.name ?? null);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Setear cuenta de Google asociada a una campaña
+// ─────────────────────────────────────────────────────────────────────────────
+export async function setCampaignGoogleAccountId(input: {
+  campaignId: string;
+  googleAccountId: string;
+}): Promise<void> {
+  const supabase = await createServiceClient();
+
+  const { error } = await supabase
+    .from("campaigns")
+    .update({ google_account_id: input.googleAccountId })
+    .eq("id", input.campaignId);
+
+  if (error) {
+    throw new Error(`Error al asociar cuenta de Google a campaña: ${error.message}`);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

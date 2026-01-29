@@ -56,7 +56,7 @@ export async function POST(
     }
 
     // Iniciar campaña desde ready
-    const sendRun = await startCampaign(campaignId);
+    const sendRun = await startCampaign(campaignId, auth.user.id);
     return NextResponse.json({
       success: true,
       sendRun,

@@ -1,6 +1,7 @@
 import {
   getCampaignById,
   createCampaign as createCampaignRepo,
+  setCampaignGoogleAccountId,
   updateCampaignStatus,
   acquireCampaignLock,
   releaseCampaignLock,
@@ -24,7 +25,7 @@ import {
 } from "@/server/integrations/db/contacts-repo";
 import { getTemplateById } from "@/server/integrations/db/templates-repo";
 import { getSettings } from "@/server/integrations/db/settings-repo";
-import { getFirstGoogleAccount } from "@/server/integrations/db/google-accounts-repo";
+import { getGoogleAccountByUserId } from "@/server/integrations/db/google-accounts-repo";
 import {
   createSendRun,
   getActiveSendRun,
@@ -97,7 +98,13 @@ export async function createCampaign(
     throw new Error("La plantilla seleccionada no existe");
   }
 
-  return createCampaignRepo(input, userId);
+  const googleAccountId =
+    userId ? (await getGoogleAccountByUserId(userId))?.id ?? null : null;
+
+  return createCampaignRepo(input, {
+    createdByUserId: userId,
+    googleAccountId,
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -396,7 +403,8 @@ export type SendTestRealResult = {
 export async function sendTestReal(
   campaignId: string,
   toEmail: string,
-  contactId?: string
+  contactId: string | undefined,
+  userId: string
 ): Promise<SendTestRealResult> {
   // Obtener campaña
   const campaign = await getCampaignById(campaignId);
@@ -446,17 +454,23 @@ export async function sendTestReal(
     }
   );
 
-  // Verificar que hay cuenta de Google configurada
-  const googleAccount = await getFirstGoogleAccount();
-  if (!googleAccount) {
-    throw new Error(
-      "No hay cuenta de Google conectada. Iniciá sesión con permisos de Gmail."
-    );
+  // Resolver cuenta de Gmail para esta campaña (persistida en DB).
+  // Fallback legacy: si no está seteada, usar la del usuario que ejecuta el test y persistirla.
+  let googleAccountId = campaign.googleAccountId;
+  if (!googleAccountId) {
+    const googleAccount = await getGoogleAccountByUserId(userId);
+    if (!googleAccount) {
+      throw new Error(
+        "No hay cuenta de Gmail conectada para este usuario. Iniciá sesión con Google."
+      );
+    }
+    googleAccountId = googleAccount.id;
+    await setCampaignGoogleAccountId({ campaignId, googleAccountId });
   }
 
   // Enviar el email real
   const sendResult = await sendEmail({
-    googleAccountId: googleAccount.id,
+    googleAccountId,
     to: toEmail,
     subject: `[TEST] ${result.subject}`,
     html: result.html,
@@ -484,7 +498,10 @@ export async function sendTestReal(
 // ─────────────────────────────────────────────────────────────────────────────
 // Iniciar campaña (tomar lock + crear run + programar primer tick)
 // ─────────────────────────────────────────────────────────────────────────────
-export async function startCampaign(campaignId: string): Promise<SendRunResponse> {
+export async function startCampaign(
+  campaignId: string,
+  userId: string
+): Promise<SendRunResponse> {
   // Obtener campaña
   const campaign = await getCampaignById(campaignId);
   if (!campaign) {
@@ -504,12 +521,19 @@ export async function startCampaign(campaignId: string): Promise<SendRunResponse
     throw new Error("No hay emails pendientes para enviar");
   }
 
-  // Verificar que hay cuenta de Google configurada
-  const googleAccount = await getFirstGoogleAccount();
-  if (!googleAccount) {
-    throw new Error(
-      "No hay cuenta de Google conectada. Iniciá sesión con permisos de Gmail."
-    );
+  // Resolver cuenta de Gmail para esta campaña (persistida en DB).
+  // Fallback legacy: si no está seteada, usar la del usuario que inicia la campaña y persistirla.
+  if (!campaign.googleAccountId) {
+    const googleAccount = await getGoogleAccountByUserId(userId);
+    if (!googleAccount) {
+      throw new Error(
+        "No hay cuenta de Gmail conectada para este usuario. Iniciá sesión con Google (la cuenta desde la cual se enviará)."
+      );
+    }
+    await setCampaignGoogleAccountId({
+      campaignId,
+      googleAccountId: googleAccount.id,
+    });
   }
 
   // Intentar tomar el lock global
@@ -782,21 +806,29 @@ export async function processSendTick(
     };
   }
 
-  // Obtener cuenta de Google
-  const googleAccount = await getFirstGoogleAccount();
-  if (!googleAccount) {
+  // Obtener cuenta de Gmail asociada a la campaña (sólido: campaigns.google_account_id).
+  // Fallback legacy: usar la cuenta del creador si existe y persistirla.
+  let googleAccountId = campaign.googleAccountId;
+  if (!googleAccountId && campaign.createdBy) {
+    googleAccountId = (await getGoogleAccountByUserId(campaign.createdBy))?.id ?? null;
+    if (googleAccountId) {
+      await setCampaignGoogleAccountId({ campaignId, googleAccountId });
+    }
+  }
+
+  if (!googleAccountId) {
     // Pausar la campaña si no hay cuenta
     await pauseCampaign(campaignId);
     return {
       action: "skipped",
-      reason: "No hay cuenta de Google conectada",
+      reason: "No hay cuenta de Gmail asociada a esta campaña",
     };
   }
 
   // Enviar el email
   try {
     const sendResult = await sendEmail({
-      googleAccountId: googleAccount.id,
+      googleAccountId,
       to: draftItem.toEmail,
       subject: draftItem.renderedSubject,
       html: draftItem.renderedHtml,
