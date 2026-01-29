@@ -78,3 +78,28 @@ export type CleanupBouncesResponse = {
   skippedMissingMessageId: number;
   errors: Array<{ bounceEventId: string; error: string }>;
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Escanear Papelera (Trash) y eliminar contactos por email rebotado
+// ─────────────────────────────────────────────────────────────────────────────
+export const scanTrashCleanupSchema = z.object({
+  // Límite por página (Gmail list). Recomendado mantenerlo bajo para evitar timeouts.
+  maxResults: z.coerce.number().int().min(1).max(200).optional().default(100),
+  // 0 = sin límite de antigüedad
+  newerThanDays: z.coerce.number().int().min(0).max(3650).optional().default(0),
+  // pageToken de Gmail para paginar
+  pageToken: z.string().min(1).optional(),
+  // Si es true, elimina contactos cuyo email coincida con el "email rebotado" extraído.
+  deleteContacts: z.boolean().optional().default(true),
+});
+
+export type ScanTrashCleanupInput = z.infer<typeof scanTrashCleanupSchema>;
+
+export type ScanTrashCleanupResponse = {
+  scanned: number;
+  extracted: number;
+  uniqueEmails: number;
+  deletedContacts: number;
+  nextPageToken: string | null;
+  errors: Array<{ messageId: string; error: string }>;
+};

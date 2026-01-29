@@ -2,6 +2,7 @@ import type {
   BouncesListResponse,
   CleanupBouncesResponse,
   ScanBouncesResponse,
+  ScanTrashCleanupResponse,
 } from "./types";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -65,6 +66,29 @@ export async function cleanupBounces(input: {
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.error ?? "Error al limpiar rebotes");
+  }
+
+  return res.json();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Escanear papelera (Gmail) y eliminar contactos por email rebotado (paginado)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function scanTrashAndCleanupContacts(options?: {
+  maxResults?: number;
+  newerThanDays?: number;
+  pageToken?: string;
+  deleteContacts?: boolean;
+}): Promise<ScanTrashCleanupResponse> {
+  const res = await fetch("/api/bounces/trash-cleanup", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(options ?? {}),
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error ?? "Error al escanear la papelera");
   }
 
   return res.json();

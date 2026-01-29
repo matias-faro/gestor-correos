@@ -31,3 +31,12 @@ export type CleanupBouncesResponse = {
   skippedMissingMessageId: number;
   errors: Array<{ bounceEventId: string; error: string }>;
 };
+
+export type ScanTrashCleanupResponse = {
+  scanned: number;
+  extracted: number;
+  uniqueEmails: number;
+  deletedContacts: number;
+  nextPageToken: string | null;
+  errors: Array<{ messageId: string; error: string }>;
+};

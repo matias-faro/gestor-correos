@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -30,7 +30,12 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
-import { cleanupBounces, fetchBounces, scanBounces } from "./api";
+import {
+  cleanupBounces,
+  fetchBounces,
+  scanBounces,
+  scanTrashAndCleanupContacts,
+} from "./api";
 import type { BounceEventResponse } from "./types";
 
 const PAGE_SIZE = 25;
@@ -40,6 +45,22 @@ export function BouncesPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
+  const [trashCleanupDialogOpen, setTrashCleanupDialogOpen] = useState(false);
+  const [trashCleaning, setTrashCleaning] = useState(false);
+  const cancelTrashCleanupRef = useRef(false);
+  const [trashProgress, setTrashProgress] = useState<{
+    pages: number;
+    scanned: number;
+    extracted: number;
+    deletedContacts: number;
+    errors: number;
+  }>({
+    pages: 0,
+    scanned: 0,
+    extracted: 0,
+    deletedContacts: 0,
+    errors: 0,
+  });
   const [offset, setOffset] = useState(0);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [cleanupDialogOpen, setCleanupDialogOpen] = useState(false);
@@ -90,6 +111,76 @@ export function BouncesPage() {
     } finally {
       setScanning(false);
     }
+  };
+
+  const handleTrashCleanupConfirm = async () => {
+    setTrashCleaning(true);
+    cancelTrashCleanupRef.current = false;
+    setTrashProgress({
+      pages: 0,
+      scanned: 0,
+      extracted: 0,
+      deletedContacts: 0,
+      errors: 0,
+    });
+
+    try {
+      let pageToken: string | undefined;
+      let safetyPages = 0;
+      const totals = {
+        pages: 0,
+        scanned: 0,
+        extracted: 0,
+        deletedContacts: 0,
+        errors: 0,
+      };
+
+      while (!cancelTrashCleanupRef.current) {
+        const res = await scanTrashAndCleanupContacts({
+          maxResults: 100,
+          newerThanDays: 0,
+          pageToken,
+          deleteContacts: true,
+        });
+
+        safetyPages += 1;
+        if (safetyPages > 500) {
+          throw new Error("Abortado por seguridad: demasiadas páginas en Gmail");
+        }
+
+        totals.pages += 1;
+        totals.scanned += res.scanned;
+        totals.extracted += res.extracted;
+        totals.deletedContacts += res.deletedContacts;
+        totals.errors += res.errors.length;
+        setTrashProgress({ ...totals });
+
+        pageToken = res.nextPageToken ?? undefined;
+        if (!pageToken) break;
+      }
+
+      if (cancelTrashCleanupRef.current) {
+        toast.info("Proceso detenido. Se aplicaron los cambios hasta la última página procesada.");
+      } else {
+        toast.success(
+          `Listo: ${totals.scanned} mails revisados, ${totals.deletedContacts} contactos eliminados` +
+            (totals.errors > 0 ? `, ${totals.errors} con error` : "")
+        );
+      }
+
+      setTrashCleanupDialogOpen(false);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Error al escanear la papelera"
+      );
+    } finally {
+      setTrashCleaning(false);
+      cancelTrashCleanupRef.current = false;
+    }
+  };
+
+  const handleTrashCleanupStop = () => {
+    cancelTrashCleanupRef.current = true;
   };
 
   const handlePageChange = (direction: "prev" | "next") => {
@@ -184,18 +275,30 @@ export function BouncesPage() {
             Detecta y gestiona emails rebotados
           </p>
         </div>
-        <Button
-          onClick={handleScan}
-          disabled={scanning}
-          className="bg-blue-600 hover:bg-blue-700"
-        >
-          {scanning ? (
-            <IconLoader2 className="mr-2 h-4 w-4 animate-spin" stroke={2} />
-          ) : (
-            <IconRefresh className="mr-2 h-4 w-4" stroke={2} />
-          )}
-          {scanning ? "Escaneando..." : "Escanear rebotes"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={handleScan}
+            disabled={scanning || trashCleaning}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            {scanning ? (
+              <IconLoader2 className="mr-2 h-4 w-4 animate-spin" stroke={2} />
+            ) : (
+              <IconRefresh className="mr-2 h-4 w-4" stroke={2} />
+            )}
+            {scanning ? "Escaneando..." : "Escanear rebotes"}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setTrashCleanupDialogOpen(true)}
+            disabled={scanning || trashCleaning}
+            className="border-red-500/40 bg-slate-950 text-red-300 hover:bg-red-500/10 hover:text-red-200"
+            title="Escanea DSN en Papelera y elimina contactos por email rebotado"
+          >
+            <IconTrash className="mr-2 h-4 w-4" />
+            Escanear papelera y borrar contactos
+          </Button>
+        </div>
       </div>
 
       {/* Table Card */}
@@ -371,6 +474,92 @@ export function BouncesPage() {
             >
               {cleaning ? "Procesando..." : "Confirmar"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Trash scan confirmation */}
+      <Dialog
+        open={trashCleanupDialogOpen}
+        onOpenChange={(open) => {
+          if (trashCleaning) return;
+          setTrashCleanupDialogOpen(open);
+        }}
+      >
+        <DialogContent className="border-slate-800 bg-slate-950">
+          <DialogHeader>
+            <DialogTitle className="text-white">
+              Escanear Papelera y borrar contactos
+            </DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Esta acción revisa mensajes de rebote (DSN) dentro de la Papelera de
+              Gmail, extrae el “email rebotado” y elimina de la base de datos los
+              contactos cuyo email coincida. No se borran los mails de Gmail (ya
+              están en Papelera).
+            </DialogDescription>
+          </DialogHeader>
+
+          {trashCleaning && (
+            <div className="rounded-md border border-slate-800 bg-slate-900/50 p-3 text-sm text-slate-300">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <span className="text-slate-400">Páginas</span>:{" "}
+                  {trashProgress.pages}
+                </div>
+                <div>
+                  <span className="text-slate-400">Mails revisados</span>:{" "}
+                  {trashProgress.scanned}
+                </div>
+                <div>
+                  <span className="text-slate-400">Emails extraídos</span>:{" "}
+                  {trashProgress.extracted}
+                </div>
+                <div>
+                  <span className="text-slate-400">Contactos eliminados</span>:{" "}
+                  {trashProgress.deletedContacts}
+                </div>
+                <div>
+                  <span className="text-slate-400">Errores</span>:{" "}
+                  {trashProgress.errors}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            {trashCleaning ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={handleTrashCleanupStop}
+                  className="border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800"
+                >
+                  Detener
+                </Button>
+                <Button
+                  disabled
+                  className="bg-red-600 hover:bg-red-700 disabled:opacity-60"
+                >
+                  Procesando...
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => setTrashCleanupDialogOpen(false)}
+                  className="border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleTrashCleanupConfirm}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  Confirmar y procesar
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

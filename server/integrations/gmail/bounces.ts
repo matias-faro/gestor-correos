@@ -30,12 +30,10 @@ type BounceSignals = {
 // ─────────────────────────────────────────────────────────────────────────────
 // Construir query de búsqueda para rebotes
 // ─────────────────────────────────────────────────────────────────────────────
-function buildBounceQuery(newerThanDays: number): string {
-  // Alineado a la lógica solicitada:
+function buildBounceCriteriaQueryPart(): string {
   // from:mailer-daemon OR from:postmaster OR subject:"Delivery Status Notification"
   // + ampliar con remitente/subject típicos de rebote sin perder precisión.
-  const timeCriteria = newerThanDays > 0 ? `newer_than:${newerThanDays}d` : "";
-  const criteria = [
+  return [
     "from:mailer-daemon@googlemail.com",
     "from:mailer-daemon",
     "from:postmaster",
@@ -45,10 +43,26 @@ function buildBounceQuery(newerThanDays: number): string {
     "subject:\"Message not delivered\"",
     "subject:\"Returned mail: see transcript for details\"",
   ].join(" OR ");
+}
+
+function buildBounceQuery(newerThanDays: number): string {
+  // Alineado a la lógica solicitada:
+  // from:mailer-daemon OR from:postmaster OR subject:"Delivery Status Notification"
+  // + ampliar con remitente/subject típicos de rebote sin perder precisión.
+  const timeCriteria = newerThanDays > 0 ? `newer_than:${newerThanDays}d` : "";
+  const criteria = buildBounceCriteriaQueryPart();
 
   // Importante: NO buscar en Spam ni Papelera.
   // Usamos `in:anywhere` para incluir archivados, pero excluimos explícitamente.
   return `in:anywhere -in:spam -in:trash ${timeCriteria} (${criteria})`.trim();
+}
+
+function buildBounceQueryInTrash(newerThanDays: number): string {
+  const timeCriteria = newerThanDays > 0 ? `newer_than:${newerThanDays}d` : "";
+  const criteria = buildBounceCriteriaQueryPart();
+
+  // Solo papelera. Esto sirve para “ponerse al día” con DSNs viejos ya trashados.
+  return `in:trash ${timeCriteria} (${criteria})`.trim();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -116,6 +130,36 @@ export async function listBounceMessageIds(options: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Listar IDs de mensajes de rebote en Papelera (una página)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function listBounceMessageIdsInTrash(options: {
+  googleAccountId: string;
+  maxResults: number;
+  newerThanDays: number;
+  pageToken?: string;
+}): Promise<{ messageIds: string[]; nextPageToken: string | null }> {
+  const gmail = await getGmailClient(options.googleAccountId);
+  const query = buildBounceQueryInTrash(options.newerThanDays);
+
+  const response = await gmail.users.messages.list({
+    userId: "me",
+    q: query,
+    maxResults: Math.min(options.maxResults, 100),
+    pageToken: options.pageToken,
+  });
+
+  const messageIds: string[] = [];
+  for (const msg of response.data.messages ?? []) {
+    if (msg.id) messageIds.push(msg.id);
+  }
+
+  return {
+    messageIds,
+    nextPageToken: response.data.nextPageToken ?? null,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Obtener mensaje completo
 // ─────────────────────────────────────────────────────────────────────────────
 export async function getMessageFull(options: {
@@ -128,6 +172,25 @@ export async function getMessageFull(options: {
     userId: "me",
     id: options.messageId,
     format: "full",
+  });
+
+  return response.data;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Obtener mensaje (metadata) - más liviano para extraer headers
+// ─────────────────────────────────────────────────────────────────────────────
+export async function getMessageMetadata(options: {
+  googleAccountId: string;
+  messageId: string;
+}): Promise<gmail_v1.Schema$Message> {
+  const gmail = await getGmailClient(options.googleAccountId);
+
+  const response = await gmail.users.messages.get({
+    userId: "me",
+    id: options.messageId,
+    format: "metadata",
+    metadataHeaders: ["From", "Subject", "X-Failed-Recipients", "Content-Type"],
   });
 
   return response.data;

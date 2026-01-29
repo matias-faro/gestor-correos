@@ -11,6 +11,10 @@ import {
 } from "@/server/integrations/db/contacts-repo";
 import {
   listBounceMessageIds,
+  listBounceMessageIdsInTrash,
+  getMessageFull,
+  getMessageMetadata,
+  extractBouncedEmailAndReason,
   processBounceMessage,
   trashMessage,
 } from "@/server/integrations/gmail/bounces";
@@ -19,6 +23,8 @@ import type {
   CleanupBouncesResponse,
   ScanBouncesInput,
   ScanBouncesResponse,
+  ScanTrashCleanupInput,
+  ScanTrashCleanupResponse,
 } from "@/server/contracts/bounces";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -156,6 +162,101 @@ export async function scanBounces(
   console.log(
     `[BounceService] Escaneo completado: ${result.scanned} escaneados, ${result.created} creados, ${result.suppressed} suprimidos, ${result.trashed} movidos a papelera`
   );
+
+  return result;
+}
+
+function uniqNormalizedEmails(emails: string[]): string[] {
+  const set = new Set<string>();
+  for (const e of emails) {
+    const normalized = e.toLowerCase().trim();
+    if (normalized) set.add(normalized);
+  }
+  return Array.from(set);
+}
+
+function chunk<T>(items: T[], size: number): T[][] {
+  if (size <= 0) return [items];
+  const result: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    result.push(items.slice(i, i + size));
+  }
+  return result;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Escanear Papelera (Trash) y eliminar contactos por email rebotado (paginado)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function scanTrashAndCleanupContacts(
+  input: ScanTrashCleanupInput,
+  userId: string
+): Promise<ScanTrashCleanupResponse> {
+  const googleAccount = await getGoogleAccountByUserId(userId);
+  if (!googleAccount) {
+    throw new Error(
+      "No hay cuenta de Gmail conectada para este usuario. Iniciá sesión con Google (la cuenta que recibe los rebotes)."
+    );
+  }
+
+  const result: ScanTrashCleanupResponse = {
+    scanned: 0,
+    extracted: 0,
+    uniqueEmails: 0,
+    deletedContacts: 0,
+    nextPageToken: null,
+    errors: [],
+  };
+
+  const { messageIds, nextPageToken } = await listBounceMessageIdsInTrash({
+    googleAccountId: googleAccount.id,
+    maxResults: input.maxResults,
+    newerThanDays: input.newerThanDays,
+    pageToken: input.pageToken,
+  });
+
+  result.scanned = messageIds.length;
+  result.nextPageToken = nextPageToken;
+
+  const extractedEmails: string[] = [];
+
+  for (const messageId of messageIds) {
+    try {
+      // Primero intentamos metadata (más barato). Si no alcanza, caemos a full.
+      const meta = await getMessageMetadata({
+        googleAccountId: googleAccount.id,
+        messageId,
+      });
+
+      let parsed = extractBouncedEmailAndReason(meta);
+
+      if (!parsed.bouncedEmail) {
+        const full = await getMessageFull({
+          googleAccountId: googleAccount.id,
+          messageId,
+        });
+        parsed = extractBouncedEmailAndReason(full);
+      }
+
+      if (parsed.bouncedEmail) {
+        extractedEmails.push(parsed.bouncedEmail);
+        result.extracted += 1;
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Error desconocido";
+      result.errors.push({ messageId, error: errorMessage });
+    }
+  }
+
+  const uniqueEmails = uniqNormalizedEmails(extractedEmails);
+  result.uniqueEmails = uniqueEmails.length;
+
+  if (input.deleteContacts && uniqueEmails.length > 0) {
+    // En algunos entornos PostgREST puede sufrir con IN gigantes; lo hacemos en chunks.
+    const chunks = chunk(uniqueEmails, 500);
+    for (const emailsChunk of chunks) {
+      result.deletedContacts += await deleteContactsByEmails(emailsChunk);
+    }
+  }
 
   return result;
 }
