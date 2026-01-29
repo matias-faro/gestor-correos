@@ -31,14 +31,16 @@ cp env.example .env.local
 
 1. Andá a [Google Cloud Console](https://console.cloud.google.com)
 2. Creá un proyecto nuevo o usá uno existente
-3. Habilitá la Gmail API
+3. Habilitá la Gmail API, Google Sheets API y Google Drive API
 4. Creá credenciales OAuth 2.0:
    - Tipo: Web application
    - Authorized redirect URI: `https://TU_PROYECTO.supabase.co/auth/v1/callback`
-5. Agregá los scopes de Gmail:
+5. Agregá estos scopes:
    - `https://www.googleapis.com/auth/gmail.send`
    - `https://www.googleapis.com/auth/gmail.readonly`
    - `https://www.googleapis.com/auth/gmail.modify`
+   - `https://www.googleapis.com/auth/spreadsheets.readonly`
+   - `https://www.googleapis.com/auth/drive.readonly`
 6. Copiá el Client ID y Client Secret a las variables de entorno:
    - `GOOGLE_CLIENT_ID`
    - `GOOGLE_CLIENT_SECRET`
@@ -47,7 +49,7 @@ cp env.example .env.local
 
 1. En Supabase Dashboard: Authentication > Providers > Google
 2. Activá el provider y pegá Client ID y Secret
-3. Agregá los scopes adicionales de Gmail
+3. Agregá los scopes anteriores (Gmail + Sheets + Drive)
 
 ### 5. Configurar Upstash QStash (para envío programado)
 

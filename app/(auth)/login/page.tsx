@@ -12,6 +12,7 @@ import {
 import { IconBrandGoogle, IconMail } from "@tabler/icons-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import { GOOGLE_OAUTH_SCOPE_STRING } from "@/lib/google/scopes";
 
 function LoginContent() {
   const searchParams = useSearchParams();
@@ -24,11 +25,11 @@ function LoginContent() {
       provider: "google",
       options: {
         redirectTo: `${window.location.origin}/api/auth/callback`,
-        scopes:
-          "https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/spreadsheets.readonly https://www.googleapis.com/auth/drive.metadata.readonly",
+        scopes: GOOGLE_OAUTH_SCOPE_STRING,
         queryParams: {
           access_type: "offline",
           prompt: "consent",
+          include_granted_scopes: "true",
         },
       },
     });

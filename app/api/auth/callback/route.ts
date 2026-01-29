@@ -1,5 +1,6 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { GOOGLE_OAUTH_SCOPES } from "@/lib/google/scopes";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -14,37 +15,41 @@ export async function GET(request: Request) {
       const { session, user } = data;
 
       // Guardar el refresh token de Google en google_accounts
-      if (session.provider_refresh_token) {
+      {
         const serviceClient = await createServiceClient();
 
         // Verificar si ya existe un registro para este usuario
         const { data: existingAccount } = await serviceClient
           .from("google_accounts")
-          .select("id")
+          .select("id, refresh_token")
           .eq("user_id", user.id)
           .single();
+
+        const refreshToken =
+          session.provider_refresh_token ?? existingAccount?.refresh_token ?? null;
+
+        // Si no tenemos refresh token (ni nuevo ni previo), no podemos operar con Google APIs.
+        // Esto suele pasar cuando el provider no devuelve refresh_token (p.ej. falta access_type=offline
+        // o el usuario ya autorizó sin "prompt=consent"). En ese caso, forzamos un error explícito.
+        if (!refreshToken) {
+          return NextResponse.redirect(`${origin}/login?error=auth_failed`);
+        }
 
         const googleAccountData = {
           user_id: user.id,
           google_sub: user.user_metadata?.sub ?? null,
           email: user.email,
           access_token: session.provider_token ?? null,
-          refresh_token: session.provider_refresh_token,
+          refresh_token: refreshToken,
           token_expiry: session.expires_at
             ? new Date(session.expires_at * 1000).toISOString()
             : null,
-          scopes: [
-            "gmail.send",
-            "gmail.readonly",
-            "gmail.modify",
-            "spreadsheets.readonly",
-            "drive.metadata.readonly",
-          ],
+          scopes: [...GOOGLE_OAUTH_SCOPES],
           updated_at: new Date().toISOString(),
         };
 
         if (existingAccount) {
-          // Actualizar registro existente
+          // Actualizar registro existente (manteniendo refresh_token previo si no vino uno nuevo)
           await serviceClient
             .from("google_accounts")
             .update(googleAccountData)

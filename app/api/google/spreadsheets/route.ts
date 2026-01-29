@@ -28,6 +28,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ spreadsheets });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Error desconocido";
+
+    // Error típico cuando el token no incluye los scopes de Drive/Sheets.
+    if (message.toLowerCase().includes("insufficient authentication scopes")) {
+      return NextResponse.json(
+        {
+          error:
+            "Tu sesión de Google no tiene permisos suficientes para listar Google Sheets. Cerrá sesión y volvé a iniciar sesión aceptando los permisos de Drive/Sheets (o revocá el acceso de la app en tu cuenta de Google y reintentá).",
+        },
+        { status: 403 }
+      );
+    }
+
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
