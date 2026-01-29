@@ -46,7 +46,9 @@ function buildBounceQuery(newerThanDays: number): string {
     "subject:\"Returned mail: see transcript for details\"",
   ].join(" OR ");
 
-  return `${timeCriteria} (${criteria})`;
+  // Importante: NO buscar en Spam ni Papelera.
+  // Usamos `in:anywhere` para incluir archivados, pero excluimos explícitamente.
+  return `in:anywhere -in:spam -in:trash ${timeCriteria} (${criteria})`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -60,8 +62,16 @@ export async function listBounceMessageIds(options: {
   const gmail = await getGmailClient(options.googleAccountId);
   const query = buildBounceQuery(options.newerThanDays);
 
+  console.log("[gmail/bounces] Buscando rebotes en Gmail", {
+    googleAccountId: options.googleAccountId,
+    newerThanDays: options.newerThanDays,
+    maxResults: options.maxResults,
+    query,
+  });
+
   const messageIds: string[] = [];
   let pageToken: string | undefined;
+  let pages = 0;
 
   do {
     const response = await gmail.users.messages.list({
@@ -70,6 +80,15 @@ export async function listBounceMessageIds(options: {
       maxResults: Math.min(options.maxResults - messageIds.length, 100),
       pageToken,
     });
+
+    pages++;
+    if (pages === 1) {
+      console.log("[gmail/bounces] Resultado búsqueda Gmail (página 1)", {
+        resultSizeEstimate: response.data.resultSizeEstimate ?? null,
+        returnedMessages: (response.data.messages ?? []).length,
+        hasNextPageToken: Boolean(response.data.nextPageToken),
+      });
+    }
 
     const messages = response.data.messages ?? [];
     for (const msg of messages) {
@@ -83,6 +102,15 @@ export async function listBounceMessageIds(options: {
 
     pageToken = response.data.nextPageToken ?? undefined;
   } while (pageToken && messageIds.length < options.maxResults);
+
+  if (messageIds.length === 0) {
+    console.warn("[gmail/bounces] Búsqueda sin resultados", { query });
+  } else {
+    console.log("[gmail/bounces] IDs recolectados", {
+      count: messageIds.length,
+      pages,
+    });
+  }
 
   return messageIds;
 }

@@ -50,6 +50,11 @@ export async function scanBounces(
   });
 
   result.scanned = messageIds.length;
+  if (result.scanned === 0) {
+    console.warn(
+      "[BounceService] 0 resultados en Gmail. Tip: verificar rango (newerThanDays) y que el mailbox contenga DSN (excluimos Spam/Papelera por diseño)."
+    );
+  }
 
   // Procesar cada mensaje
   const emailsToSuppress: string[] = [];

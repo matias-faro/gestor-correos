@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    console.log("[bounces/scan] Request", parsed.data);
     const result = await scanBounces(parsed.data);
     return NextResponse.json(result);
   } catch (err) {
