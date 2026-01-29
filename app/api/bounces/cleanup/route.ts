@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await cleanupBounces(parsed.data);
+    const result = await cleanupBounces(parsed.data, auth.user.id);
     return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Error desconocido";

@@ -1,4 +1,4 @@
-import { getFirstGoogleAccount } from "@/server/integrations/db/google-accounts-repo";
+import { getGoogleAccountByUserId } from "@/server/integrations/db/google-accounts-repo";
 import {
   hasBounceEventByMessageId,
   getBounceEventsByIds,
@@ -24,13 +24,13 @@ import type {
 // Escanear rebotes en Gmail y suprimir contactos
 // ─────────────────────────────────────────────────────────────────────────────
 export async function scanBounces(
-  input: ScanBouncesInput
+  input: ScanBouncesInput,
+  userId: string
 ): Promise<ScanBouncesResponse> {
-  // Obtener cuenta de Google (single-tenant)
-  const googleAccount = await getFirstGoogleAccount();
+  const googleAccount = await getGoogleAccountByUserId(userId);
   if (!googleAccount) {
     throw new Error(
-      "No hay cuenta de Google conectada. Iniciá sesión con permisos de Gmail."
+      "No hay cuenta de Gmail conectada para este usuario. Iniciá sesión con Google (la cuenta que recibe los rebotes)."
     );
   }
 
@@ -47,7 +47,6 @@ export async function scanBounces(
     googleAccountId: googleAccount.id,
     maxResults: input.maxResults,
     newerThanDays: input.newerThanDays,
-    sortOldestFirst: true,
   });
 
   result.scanned = messageIds.length;
@@ -164,7 +163,8 @@ export async function scanBounces(
 // Limpieza manual: eliminar contactos rebotados + mandar a papelera el mail DSN
 // ─────────────────────────────────────────────────────────────────────────────
 export async function cleanupBounces(
-  input: CleanupBouncesInput
+  input: CleanupBouncesInput,
+  userId: string
 ): Promise<CleanupBouncesResponse> {
   const result: CleanupBouncesResponse = {
     selected: input.ids.length,
@@ -195,11 +195,10 @@ export async function cleanupBounces(
 
   // Mandar mensajes a papelera (si aplica)
   if (input.trashGmailMessages) {
-    // Obtener cuenta de Google (single-tenant)
-    const googleAccount = await getFirstGoogleAccount();
+    const googleAccount = await getGoogleAccountByUserId(userId);
     if (!googleAccount) {
       throw new Error(
-        "No hay cuenta de Google conectada. Iniciá sesión con permisos de Gmail."
+        "No hay cuenta de Gmail conectada para este usuario. Iniciá sesión con Google."
       );
     }
 

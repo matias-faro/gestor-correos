@@ -58,7 +58,6 @@ export async function listBounceMessageIds(options: {
   googleAccountId: string;
   maxResults: number;
   newerThanDays: number;
-  sortOldestFirst?: boolean;
 }): Promise<string[]> {
   const gmail = await getGmailClient(options.googleAccountId);
   const query = buildBounceQuery(options.newerThanDays);
@@ -106,36 +105,7 @@ export async function listBounceMessageIds(options: {
 
   if (messageIds.length === 0) {
     console.warn("[gmail/bounces] Búsqueda sin resultados", { query });
-    return messageIds;
-  }
-
-  if (options.sortOldestFirst) {
-    const withDates = await mapInBatches(messageIds, 20, async (id) => {
-      try {
-        const res = await gmail.users.messages.get({
-          userId: "me",
-          id,
-          format: "metadata",
-        });
-        const ms = Number(res.data.internalDate ?? 0);
-        return { id, internalDateMs: Number.isFinite(ms) ? ms : 0 };
-      } catch {
-        // Si falla, lo mandamos al final.
-        return { id, internalDateMs: Number.MAX_SAFE_INTEGER };
-      }
-    });
-
-    withDates.sort((a, b) => a.internalDateMs - b.internalDateMs);
-    const sortedIds = withDates.map((x) => x.id);
-
-    console.log("[gmail/bounces] IDs ordenados (más antiguos primero)", {
-      count: sortedIds.length,
-    });
-
-    return sortedIds;
-  }
-
-  {
+  } else {
     console.log("[gmail/bounces] IDs recolectados", {
       count: messageIds.length,
       pages,
@@ -143,20 +113,6 @@ export async function listBounceMessageIds(options: {
   }
 
   return messageIds;
-}
-
-async function mapInBatches<T, R>(
-  items: T[],
-  batchSize: number,
-  mapper: (item: T) => Promise<R>
-): Promise<R[]> {
-  const results: R[] = [];
-  for (let i = 0; i < items.length; i += batchSize) {
-    const batch = items.slice(i, i + batchSize);
-    const mapped = await Promise.all(batch.map(mapper));
-    results.push(...mapped);
-  }
-  return results;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

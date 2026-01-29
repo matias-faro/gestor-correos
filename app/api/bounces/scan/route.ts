@@ -29,8 +29,8 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    console.log("[bounces/scan] Request", parsed.data);
-    const result = await scanBounces(parsed.data);
+    console.log("[bounces/scan] Request", { ...parsed.data, userId: auth.user.id });
+    const result = await scanBounces(parsed.data, auth.user.id);
     return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Error desconocido";
