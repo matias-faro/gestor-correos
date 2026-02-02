@@ -43,8 +43,14 @@ export type ContactSource = {
   sheetTab: string;
   googleAccountId: string | null;
   lastSyncedAt: string | null;
+  lastSyncStartedAt: string | null;
   lastSyncStatus: string | null;
   lastSyncError: string | null;
+  lastSyncProcessed: number | null;
+  lastSyncSkipped: number | null;
+  lastSyncLastRow: number | null;
+  lastSyncRemovedMemberships: number | null;
+  lastSyncDeletedContacts: number | null;
   createdAt: string;
   updatedAt: string;
 };

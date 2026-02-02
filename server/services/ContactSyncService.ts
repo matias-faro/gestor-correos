@@ -8,6 +8,11 @@ type ContactSource = {
   spreadsheet_id: string;
   sheet_tab: string;
   google_account_id: string | null;
+  last_sync_processed: number | null;
+  last_sync_skipped: number | null;
+  last_sync_last_row: number | null;
+  last_sync_removed_memberships: number | null;
+  last_sync_deleted_contacts: number | null;
 };
 
 type SyncResult = {
@@ -114,6 +119,8 @@ export async function processContactSync(
   payload: SyncContactsPayload
 ): Promise<SyncResult> {
   const supabase = await createServiceClient();
+  let resetRemoved = 0;
+  let resetDeleted = 0;
   const {
     sourceId,
     startRow,
@@ -127,7 +134,9 @@ export async function processContactSync(
 
   const { data: source, error: sourceError } = await supabase
     .from("contact_sources")
-    .select("id, spreadsheet_id, sheet_tab, google_account_id")
+    .select(
+      "id, spreadsheet_id, sheet_tab, google_account_id, last_sync_processed, last_sync_skipped, last_sync_last_row, last_sync_removed_memberships, last_sync_deleted_contacts"
+    )
     .eq("id", sourceId)
     .single();
 
@@ -149,8 +158,91 @@ export async function processContactSync(
       await supabase
         .from("contact_sources")
         .update({
+          last_sync_started_at: syncStartIso,
           last_sync_status: "running",
           last_sync_error: null,
+          last_sync_processed: 0,
+          last_sync_skipped: 0,
+          last_sync_last_row: null,
+          last_sync_removed_memberships: 0,
+          last_sync_deleted_contacts: 0,
+        })
+        .eq("id", sourceId);
+
+      const { data: existingMemberships, error: existingMembershipsError } =
+        await supabase
+          .from("contact_source_memberships")
+          .select("contact_id")
+          .eq("source_id", sourceId);
+
+      if (existingMembershipsError) {
+        throw new Error(
+          `Error al cargar contactos existentes: ${existingMembershipsError.message}`
+        );
+      }
+
+      const existingContactIds = Array.from(
+        new Set((existingMemberships ?? []).map((row) => row.contact_id as string))
+      );
+
+      if (existingContactIds.length > 0) {
+        const { error: deleteMembershipsError } = await supabase
+          .from("contact_source_memberships")
+          .delete()
+          .eq("source_id", sourceId);
+
+        if (deleteMembershipsError) {
+          throw new Error(
+            `Error al resetear memberships: ${deleteMembershipsError.message}`
+          );
+        }
+
+        resetRemoved = existingContactIds.length;
+
+        const referencedIds = new Set<string>();
+        for (const batch of chunkArray(existingContactIds, 500)) {
+          const { data: referenced, error: referencedError } = await supabase
+            .from("contact_source_memberships")
+            .select("contact_id")
+            .in("contact_id", batch)
+            .neq("source_id", sourceId);
+
+          if (referencedError) {
+            throw new Error(
+              `Error al validar referencias de contactos: ${referencedError.message}`
+            );
+          }
+
+          (referenced ?? []).forEach((row) => {
+            referencedIds.add(row.contact_id as string);
+          });
+        }
+
+        const orphanContactIds = existingContactIds.filter(
+          (id) => !referencedIds.has(id)
+        );
+
+        for (const batch of chunkArray(orphanContactIds, 500)) {
+          const { error: deleteError } = await supabase
+            .from("contacts")
+            .delete()
+            .in("id", batch);
+
+          if (deleteError) {
+            throw new Error(
+              `Error al eliminar contactos reseteados: ${deleteError.message}`
+            );
+          }
+        }
+
+        resetDeleted = orphanContactIds.length;
+      }
+
+      await supabase
+        .from("contact_sources")
+        .update({
+          last_sync_removed_memberships: resetRemoved,
+          last_sync_deleted_contacts: resetDeleted,
         })
         .eq("id", sourceId);
     }
@@ -181,19 +273,6 @@ export async function processContactSync(
       startRow,
       endRow: startRow + batchSize - 1,
     });
-
-    if (rows.length === 0) {
-      await supabase
-        .from("contact_sources")
-        .update({
-          last_synced_at: new Date().toISOString(),
-          last_sync_status: "completed",
-          last_sync_error: null,
-        })
-        .eq("id", sourceId);
-
-      return { action: "completed", processed: 0, skipped: 0 };
-    }
 
     let processed = 0;
     let skipped = 0;
@@ -269,6 +348,26 @@ export async function processContactSync(
       processed = contactsToUpsert.length;
     }
 
+    const baseProcessed = startRow === 2 ? 0 : typedSource.last_sync_processed ?? 0;
+    const baseSkipped = startRow === 2 ? 0 : typedSource.last_sync_skipped ?? 0;
+    const processedSoFar = baseProcessed + processed;
+    const skippedSoFar = baseSkipped + skipped;
+    const lastRow =
+      rows.length > 0
+        ? startRow + rows.length - 1
+        : startRow === 2
+          ? null
+          : typedSource.last_sync_last_row ?? null;
+
+    await supabase
+      .from("contact_sources")
+      .update({
+        last_sync_processed: processedSoFar,
+        last_sync_skipped: skippedSoFar,
+        last_sync_last_row: lastRow,
+      })
+      .eq("id", sourceId);
+
     const shouldContinue = rows.length === batchSize;
     if (shouldContinue) {
       const nextStartRow = startRow + batchSize;
@@ -313,6 +412,15 @@ export async function processContactSync(
       .eq("source_id", sourceId)
       .lt("last_seen_at", syncStartIso);
 
+    const baseRemoved =
+      startRow === 2
+        ? resetRemoved
+        : typedSource.last_sync_removed_memberships ?? 0;
+    const baseDeleted =
+      startRow === 2 ? resetDeleted : typedSource.last_sync_deleted_contacts ?? 0;
+    let staleRemoved = 0;
+    let staleDeleted = 0;
+
     if (staleContactIds.length > 0) {
       const referencedIds = new Set<string>();
 
@@ -349,7 +457,18 @@ export async function processContactSync(
           );
         }
       }
+
+      staleRemoved = staleContactIds.length;
+      staleDeleted = orphanContactIds.length;
     }
+
+    await supabase
+      .from("contact_sources")
+      .update({
+        last_sync_removed_memberships: baseRemoved + staleRemoved,
+        last_sync_deleted_contacts: baseDeleted + staleDeleted,
+      })
+      .eq("id", sourceId);
 
     await supabase
       .from("contact_sources")

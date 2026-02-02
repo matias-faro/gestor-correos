@@ -93,12 +93,37 @@ export function SettingsPage({ initialSettings }: SettingsPageProps) {
   const activeSource = sources.find(
     (source) => source.id === settings.activeContactSourceId
   );
+  const formatSyncTimestamp = (value: string | null) =>
+    value ? new Date(value).toLocaleString() : "Nunca";
+  const syncStatusLabel = (() => {
+    if (!activeSource?.lastSyncStatus) return "Sin estado";
+    if (activeSource.lastSyncStatus === "running") return "Sincronizando";
+    if (activeSource.lastSyncStatus === "completed") return "Completado";
+    if (activeSource.lastSyncStatus === "failed") return "Fallido";
+    return activeSource.lastSyncStatus;
+  })();
+  const activeSourceId = activeSource?.id;
+  const activeSourceStatus = activeSource?.lastSyncStatus;
+
+  useEffect(() => {
+    if (!activeSourceId || activeSourceStatus !== "running") return;
+    let alive = true;
+    const interval = setInterval(async () => {
+      try {
+        const data = await fetchContactSources();
+        if (alive) setSources(data);
+      } catch {
+        // Silencioso: el estado se puede volver a cargar manualmente.
+      }
+    }, 5000);
+    return () => {
+      alive = false;
+      clearInterval(interval);
+    };
+  }, [activeSourceId, activeSourceStatus]);
 
   // Format send windows for display
   const formatWindows = () => {
-    const weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday"] as const;
-    const weekend = ["saturday", "sunday"] as const;
-
     const weekdayWindow = settings.sendWindows.monday[0];
     const weekendWindow = settings.sendWindows.saturday[0];
 
@@ -472,7 +497,9 @@ export function SettingsPage({ initialSettings }: SettingsPageProps) {
                 <option value="">Sin fuente activa</option>
                 {sources.map((source) => (
                   <option key={source.id} value={source.id}>
-                    {source.name}
+                    {source.sheetTab && source.sheetTab !== "Base de datos"
+                      ? `${source.name} - ${source.sheetTab}`
+                      : source.name}
                   </option>
                 ))}
               </select>
@@ -486,14 +513,42 @@ export function SettingsPage({ initialSettings }: SettingsPageProps) {
                     {activeSource.name}
                   </div>
                   <div>
+                    <span className="text-slate-500">Pestaña:</span>{" "}
+                    {activeSource.sheetTab}
+                  </div>
+                  <div>
                     <span className="text-slate-500">Último sync:</span>{" "}
-                    {activeSource.lastSyncedAt
-                      ? new Date(activeSource.lastSyncedAt).toLocaleString()
-                      : "Nunca"}
+                    {formatSyncTimestamp(activeSource.lastSyncedAt)}
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Inicio:</span>{" "}
+                    {formatSyncTimestamp(activeSource.lastSyncStartedAt)}
                   </div>
                   <div>
                     <span className="text-slate-500">Estado:</span>{" "}
-                    {activeSource.lastSyncStatus ?? "Sin estado"}
+                    {syncStatusLabel}
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <div>
+                      <span className="text-slate-500">Procesados:</span>{" "}
+                      {activeSource.lastSyncProcessed ?? 0}
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Saltados:</span>{" "}
+                      {activeSource.lastSyncSkipped ?? 0}
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Desasociados:</span>{" "}
+                      {activeSource.lastSyncRemovedMemberships ?? 0}
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Eliminados:</span>{" "}
+                      {activeSource.lastSyncDeletedContacts ?? 0}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Última fila:</span>{" "}
+                    {activeSource.lastSyncLastRow ?? "Sin datos"}
                   </div>
                   {activeSource.lastSyncError ? (
                     <div className="text-red-400">
@@ -520,8 +575,8 @@ export function SettingsPage({ initialSettings }: SettingsPageProps) {
               Sincronizar ahora
             </Button>
             <p className="text-xs text-slate-500">
-              La sincronización refleja exactamente lo que está en la hoja,
-              incluyendo eliminaciones.
+              Sincronizar ahora hace un hard reset: borra los contactos de esta
+              fuente y los reimporta desde la hoja.
             </p>
           </CardContent>
         </Card>

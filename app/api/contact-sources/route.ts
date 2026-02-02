@@ -19,7 +19,8 @@ export async function GET() {
     return NextResponse.json({ sources });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Error desconocido";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const status = message.includes("Ya existe una fuente") ? 409 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }
 
