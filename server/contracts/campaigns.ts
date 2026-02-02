@@ -19,6 +19,7 @@ export type CampaignStatus = z.infer<typeof campaignStatusEnum>;
 // ─────────────────────────────────────────────────────────────────────────────
 export const draftItemStateEnum = z.enum([
   "pending",
+  "sending",
   "sent",
   "failed",
   "excluded",

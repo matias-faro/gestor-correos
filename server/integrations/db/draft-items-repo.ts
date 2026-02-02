@@ -85,7 +85,11 @@ export async function listDraftItems(
   }
 
   if (filters.state) {
-    query = query.eq("state", filters.state);
+    if (filters.state === "pending") {
+      query = query.in("state", ["pending", "sending"]);
+    } else {
+      query = query.eq("state", filters.state);
+    }
   }
 
   query = query
@@ -136,6 +140,28 @@ export async function countDraftItems(campaignId: string): Promise<number> {
     .from("draft_items")
     .select("id", { count: "exact", head: true })
     .eq("campaign_id", campaignId);
+
+  if (error) {
+    throw new Error(`Error al contar draft items: ${error.message}`);
+  }
+
+  return count ?? 0;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Contar draft items por estados
+// ─────────────────────────────────────────────────────────────────────────────
+export async function countDraftItemsByStates(
+  campaignId: string,
+  states: DraftItemState[]
+): Promise<number> {
+  const supabase = await createServiceClient();
+
+  const { count, error } = await supabase
+    .from("draft_items")
+    .select("id", { count: "exact", head: true })
+    .eq("campaign_id", campaignId)
+    .in("state", states);
 
   if (error) {
     throw new Error(`Error al contar draft items: ${error.message}`);
@@ -396,6 +422,28 @@ export async function getNextPendingDraftItem(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Reclamar el próximo draft pendiente (atómico, evita duplicados)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function claimNextPendingDraftItem(
+  campaignId: string
+): Promise<DraftItemResponse | null> {
+  const supabase = await createServiceClient();
+
+  const { data, error } = await supabase.rpc("claim_next_pending_draft_item", {
+    p_campaign_id: campaignId,
+  });
+
+  if (error) {
+    throw new Error(`Error al reclamar draft item: ${error.message}`);
+  }
+
+  const rows = Array.isArray(data) ? data : data ? [data] : [];
+  if (rows.length === 0) return null;
+
+  return mapDraftItem(rows[0] as DbDraftItem);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Marcar draft item como enviado
 // ─────────────────────────────────────────────────────────────────────────────
 export async function markDraftItemAsSent(id: string): Promise<void> {
@@ -405,7 +453,7 @@ export async function markDraftItemAsSent(id: string): Promise<void> {
     .from("draft_items")
     .update({ state: "sent" })
     .eq("id", id)
-    .eq("state", "pending"); // Solo si está pending (idempotencia)
+    .in("state", ["pending", "sending"]); // Solo si está pendiente/enviando (idempotencia)
 
   if (error) {
     throw new Error(`Error al marcar draft item como enviado: ${error.message}`);
@@ -424,7 +472,8 @@ export async function markDraftItemAsFailed(
   const { error } = await supabase
     .from("draft_items")
     .update({ state: "failed", error: errorMessage })
-    .eq("id", id);
+    .eq("id", id)
+    .in("state", ["pending", "sending"]);
 
   if (error) {
     throw new Error(`Error al marcar draft item como fallido: ${error.message}`);

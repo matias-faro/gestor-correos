@@ -96,6 +96,7 @@ const STATUS_LABELS: Record<CampaignStatus, string> = {
 
 const DRAFT_STATE_LABELS: Record<DraftItemState, string> = {
   pending: "Pendiente",
+  sending: "Enviando",
   sent: "Enviado",
   failed: "Fallido",
   excluded: "Excluido",
@@ -1130,7 +1131,7 @@ export function CampaignDetailPage({ campaignId }: CampaignDetailPageProps) {
                           <TableCell>
                             <Badge
                               variant={
-                                item.state === "pending"
+                                item.state === "pending" || item.state === "sending"
                                   ? "secondary"
                                   : item.state === "sent"
                                     ? "default"

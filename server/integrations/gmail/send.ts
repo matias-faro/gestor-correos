@@ -1,4 +1,5 @@
 import { getGmailClient, getSenderEmail } from "./client";
+import { assertValidEmail, sanitizeHeaderValue } from "@/server/domain/email";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos
@@ -52,11 +53,14 @@ export async function sendEmail(options: {
   const gmail = await getGmailClient(googleAccountId);
   const senderEmail = await getSenderEmail(googleAccountId);
 
+  const toEmail = assertValidEmail(to, "Email de destino");
+  const safeFromAlias = fromAlias ? sanitizeHeaderValue(fromAlias) : "";
+
   // Construir el "From" con alias opcional
-  const from = fromAlias ? `${fromAlias} <${senderEmail}>` : senderEmail;
+  const from = safeFromAlias ? `${safeFromAlias} <${senderEmail}>` : senderEmail;
 
   // Crear mensaje MIME
-  const mimeMessage = createMimeMessage({ from, to, subject, html });
+  const mimeMessage = createMimeMessage({ from, to: toEmail, subject, html });
 
   // Codificar para Gmail API (base64url)
   const encodedMessage = Buffer.from(mimeMessage)

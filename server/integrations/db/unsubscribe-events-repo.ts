@@ -31,6 +31,7 @@ export async function insertUnsubscribeEvent(input: {
   });
 
   if (error) {
+    if (error.code === "23505") return;
     throw new Error(`Error al insertar unsubscribe_event: ${error.message}`);
   }
 }

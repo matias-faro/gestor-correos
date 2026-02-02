@@ -152,6 +152,9 @@ export async function listCampaignsWithStats(
       case "pending":
         stats.pending++;
         break;
+      case "sending":
+        stats.pending++;
+        break;
       case "sent":
         stats.sent++;
         break;
@@ -354,6 +357,9 @@ export async function getCampaignStats(
       case "pending":
         stats.pending++;
         break;
+      case "sending":
+        stats.pending++;
+        break;
       case "sent":
         stats.sent++;
         break;
@@ -393,12 +399,6 @@ export async function hasActiveCampaignLock(): Promise<boolean> {
 export async function acquireCampaignLock(campaignId: string): Promise<boolean> {
   const supabase = await createServiceClient();
 
-  // Verificar que no hay otra campaña con lock
-  const hasLock = await hasActiveCampaignLock();
-  if (hasLock) {
-    return false;
-  }
-
   // Intentar tomar el lock (solo si no está ya tomado)
   const { data, error } = await supabase
     .from("campaigns")
@@ -409,7 +409,7 @@ export async function acquireCampaignLock(campaignId: string): Promise<boolean> 
     .single();
 
   if (error) {
-    if (error.code === "PGRST116") return false;
+    if (error.code === "PGRST116" || error.code === "23505") return false;
     throw new Error(`Error al tomar lock: ${error.message}`);
   }
 

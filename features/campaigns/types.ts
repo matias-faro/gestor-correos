@@ -8,7 +8,7 @@ export type CampaignStatus =
   | "completed"
   | "cancelled";
 
-export type DraftItemState = "pending" | "sent" | "failed" | "excluded";
+export type DraftItemState = "pending" | "sending" | "sent" | "failed" | "excluded";
 
 export type CampaignFilters = {
   query?: string;

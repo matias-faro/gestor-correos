@@ -519,6 +519,10 @@ export function SettingsPage({ initialSettings }: SettingsPageProps) {
               ) : null}
               Sincronizar ahora
             </Button>
+            <p className="text-xs text-slate-500">
+              La sincronización refleja exactamente lo que está en la hoja,
+              incluyendo eliminaciones.
+            </p>
           </CardContent>
         </Card>
       </div>

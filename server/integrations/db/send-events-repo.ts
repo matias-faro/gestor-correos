@@ -33,6 +33,25 @@ function mapSendEvent(data: DbSendEvent): SendEventResponse {
   };
 }
 
+async function getSendEventByDraftItemId(
+  draftItemId: string
+): Promise<SendEventResponse | null> {
+  const supabase = await createServiceClient();
+
+  const { data, error } = await supabase
+    .from("send_events")
+    .select("*")
+    .eq("draft_item_id", draftItemId)
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") return null;
+    throw new Error(`Error al obtener send event: ${error.message}`);
+  }
+
+  return mapSendEvent(data as DbSendEvent);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Crear evento de envío exitoso
 // ─────────────────────────────────────────────────────────────────────────────
@@ -47,14 +66,14 @@ export async function createSendEventSuccess(input: {
 
   const { data, error } = await supabase
     .from("send_events")
-    .insert({
+    .upsert({
       campaign_id: input.campaignId,
       draft_item_id: input.draftItemId,
       gmail_message_id: input.gmailMessageId,
       gmail_thread_id: input.gmailThreadId,
       gmail_permalink: input.gmailPermalink,
       status: "sent",
-    })
+    }, { onConflict: "draft_item_id" })
     .select("*")
     .single();
 
@@ -73,16 +92,21 @@ export async function createSendEventFailure(input: {
   draftItemId: string;
   error: string;
 }): Promise<SendEventResponse> {
+  const existing = await getSendEventByDraftItemId(input.draftItemId);
+  if (existing?.status === "sent") {
+    return existing;
+  }
+
   const supabase = await createServiceClient();
 
   const { data, error } = await supabase
     .from("send_events")
-    .insert({
+    .upsert({
       campaign_id: input.campaignId,
       draft_item_id: input.draftItemId,
       status: "failed",
       error: input.error,
-    })
+    }, { onConflict: "draft_item_id" })
     .select("*")
     .single();
 

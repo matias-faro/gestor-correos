@@ -29,6 +29,25 @@ function mapBounceEvent(data: DbBounceEvent): BounceEventResponse {
   };
 }
 
+async function getBounceEventByMessageId(
+  gmailMessageId: string
+): Promise<BounceEventResponse | null> {
+  const supabase = await createServiceClient();
+
+  const { data, error } = await supabase
+    .from("bounce_events")
+    .select("*")
+    .eq("gmail_message_id", gmailMessageId)
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") return null;
+    throw new Error(`Error al obtener bounce event: ${error.message}`);
+  }
+
+  return mapBounceEvent(data as DbBounceEvent);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Listar bounce events con paginación
 // ─────────────────────────────────────────────────────────────────────────────
@@ -98,6 +117,10 @@ export async function insertBounceEvent(input: {
     .single();
 
   if (error) {
+    if (error.code === "23505" && input.gmailMessageId) {
+      const existing = await getBounceEventByMessageId(input.gmailMessageId);
+      if (existing) return existing;
+    }
     throw new Error(`Error al insertar bounce event: ${error.message}`);
   }
 

@@ -92,6 +92,15 @@ function getCell(row: string[], index: number | null): string {
   return String(row[index] ?? "").trim();
 }
 
+function chunkArray<T>(items: T[], size: number): T[][] {
+  if (size <= 0) return [items];
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
+
 function pickHeaderIndex(headers: string[], candidates: string[]): number | null {
   const normalized = headers.map(normalizeHeader);
   for (const candidate of candidates) {
@@ -281,11 +290,66 @@ export async function processContactSync(
       };
     }
 
+    const { data: staleMemberships, error: staleMembershipsError } =
+      await supabase
+        .from("contact_source_memberships")
+        .select("contact_id")
+        .eq("source_id", sourceId)
+        .lt("last_seen_at", syncStartIso);
+
+    if (staleMembershipsError) {
+      throw new Error(
+        `Error al detectar contactos obsoletos: ${staleMembershipsError.message}`
+      );
+    }
+
+    const staleContactIds = Array.from(
+      new Set((staleMemberships ?? []).map((row) => row.contact_id as string))
+    );
+
     await supabase
       .from("contact_source_memberships")
       .delete()
       .eq("source_id", sourceId)
       .lt("last_seen_at", syncStartIso);
+
+    if (staleContactIds.length > 0) {
+      const referencedIds = new Set<string>();
+
+      for (const batch of chunkArray(staleContactIds, 500)) {
+        const { data: referenced, error: referencedError } = await supabase
+          .from("contact_source_memberships")
+          .select("contact_id")
+          .in("contact_id", batch);
+
+        if (referencedError) {
+          throw new Error(
+            `Error al validar referencias de contactos: ${referencedError.message}`
+          );
+        }
+
+        (referenced ?? []).forEach((row) => {
+          referencedIds.add(row.contact_id as string);
+        });
+      }
+
+      const orphanContactIds = staleContactIds.filter(
+        (id) => !referencedIds.has(id)
+      );
+
+      for (const batch of chunkArray(orphanContactIds, 500)) {
+        const { error: deleteError } = await supabase
+          .from("contacts")
+          .delete()
+          .in("id", batch);
+
+        if (deleteError) {
+          throw new Error(
+            `Error al eliminar contactos obsoletos: ${deleteError.message}`
+          );
+        }
+      }
+    }
 
     await supabase
       .from("contact_sources")

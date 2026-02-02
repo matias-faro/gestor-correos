@@ -8,6 +8,7 @@ import {
 } from "@/server/integrations/db/campaigns-repo";
 import {
   countDraftItems,
+  countDraftItemsByStates,
   deleteDraftItemsForCampaign,
   createDraftItemsBatch,
   findDraftItemByEmail,
@@ -15,7 +16,7 @@ import {
   excludeDraftItem as excludeDraftItemRepo,
   includeDraftItem as includeDraftItemRepo,
   createTestSendEvent,
-  getNextPendingDraftItem,
+  claimNextPendingDraftItem,
   markDraftItemAsSent,
   markDraftItemAsFailed,
 } from "@/server/integrations/db/draft-items-repo";
@@ -45,6 +46,7 @@ import {
 } from "@/server/domain/templating";
 import { calculateNextTick } from "@/server/domain/scheduler";
 import { createUnsubscribeToken } from "@/server/domain/unsubscribe-token";
+import { assertValidEmail } from "@/server/domain/email";
 import { sendEmail } from "@/server/integrations/gmail/send";
 import {
   scheduleSendTick,
@@ -406,6 +408,8 @@ export async function sendTestReal(
   contactId: string | undefined,
   userId: string
 ): Promise<SendTestRealResult> {
+  const normalizedToEmail = assertValidEmail(toEmail, "Email de prueba");
+
   // Obtener campaña
   const campaign = await getCampaignById(campaignId);
   if (!campaign) {
@@ -471,7 +475,7 @@ export async function sendTestReal(
   // Enviar el email real
   const sendResult = await sendEmail({
     googleAccountId,
-    to: toEmail,
+    to: normalizedToEmail,
     subject: `[TEST] ${result.subject}`,
     html: result.html,
     fromAlias: campaign.fromAlias,
@@ -481,14 +485,14 @@ export async function sendTestReal(
   await createTestSendEvent({
     campaignId,
     contactId: contactId ?? null,
-    toEmail,
+    toEmail: normalizedToEmail,
     renderedSubject: `[TEST] ${result.subject}`,
     renderedHtml: result.html,
   });
 
   return {
     success: true,
-    toEmail,
+    toEmail: normalizedToEmail,
     subject: result.subject,
     gmailMessageId: sendResult.messageId,
     gmailPermalink: sendResult.permalink,
@@ -516,7 +520,7 @@ export async function startCampaign(
   }
 
   // Verificar que hay drafts pendientes
-  const pendingCount = await countDraftItems(campaignId);
+  const pendingCount = await countDraftItemsByStates(campaignId, ["pending", "sending"]);
   if (pendingCount === 0) {
     throw new Error("No hay emails pendientes para enviar");
   }
@@ -762,9 +766,17 @@ export async function processSendTick(
     };
   }
 
-  // Obtener próximo draft pendiente
-  const draftItem = await getNextPendingDraftItem(campaignId);
+  // Reclamar próximo draft pendiente (atómico)
+  const draftItem = await claimNextPendingDraftItem(campaignId);
   if (!draftItem) {
+    const sendingCount = await countDraftItemsByStates(campaignId, ["sending"]);
+    if (sendingCount > 0) {
+      return {
+        action: "skipped",
+        reason: "Hay envíos en progreso",
+      };
+    }
+
     // No hay más drafts, completar campaña
     await updateSendRunStatus(sendRunId, "completed", new Date().toISOString());
     await updateCampaignStatus(campaignId, "completed");
@@ -786,7 +798,7 @@ export async function processSendTick(
   const todaySentCount = await countTodaySendEvents(settings.timezone);
 
   // Calcular próximo tick
-  const pendingCount = await countDraftItems(campaignId);
+  const pendingCount = await countDraftItemsByStates(campaignId, ["pending", "sending"]);
   const nextTick = calculateNextTick(settings, pendingCount, todaySentCount);
 
   // Si no es inmediato, programar para después
@@ -848,9 +860,9 @@ export async function processSendTick(
     });
 
     // Verificar si quedan más emails pendientes
-    const nextPending = await getNextPendingDraftItem(campaignId);
-    
-    if (!nextPending) {
+    const remainingCount = await countDraftItemsByStates(campaignId, ["pending", "sending"]);
+
+    if (remainingCount === 0) {
       // No hay más pendientes, completar la campaña inmediatamente
       await updateSendRunStatus(sendRunId, "completed", new Date().toISOString());
       await updateCampaignStatus(campaignId, "completed");
@@ -900,9 +912,9 @@ export async function processSendTick(
     );
 
     // Verificar si quedan más emails pendientes después del fallo
-    const nextPending = await getNextPendingDraftItem(campaignId);
-    
-    if (!nextPending) {
+    const remainingCount = await countDraftItemsByStates(campaignId, ["pending", "sending"]);
+
+    if (remainingCount === 0) {
       // No hay más pendientes (todos enviados o fallidos), completar la campaña
       await updateSendRunStatus(sendRunId, "completed", new Date().toISOString());
       await updateCampaignStatus(campaignId, "completed");

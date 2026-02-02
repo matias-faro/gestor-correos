@@ -106,7 +106,7 @@ export async function getActiveCampaign(): Promise<ActiveCampaignInfo> {
     .from("draft_items")
     .select("id", { count: "exact", head: true })
     .eq("campaign_id", campaign.id)
-    .eq("state", "pending");
+    .in("state", ["pending", "sending"]);
 
   // templates puede ser un objeto o un array dependiendo de la relación
   let templateName: string | null = null;
