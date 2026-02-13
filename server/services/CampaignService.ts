@@ -858,31 +858,6 @@ export async function processSendTick(
     };
   }
 
-  // Reclamar próximo draft pendiente (atómico)
-  const draftItem = await claimNextPendingDraftItem(campaignId);
-  if (!draftItem) {
-    const sendingCount = await countDraftItemsByStates(campaignId, ["sending"]);
-    if (sendingCount > 0) {
-      return {
-        action: "skipped",
-        reason: "Hay envíos en progreso",
-      };
-    }
-
-    // No hay más drafts, completar campaña
-    await updateSendRunStatus(sendRunId, "completed", new Date().toISOString());
-    await updateCampaignStatus(campaignId, "completed");
-    await releaseCampaignLock(campaignId);
-
-    // Contar total enviados
-    const stats = await countDraftItems(campaignId);
-
-    return {
-      action: "completed",
-      totalSent: stats,
-    };
-  }
-
   // Obtener configuración
   const settings = await getSettings();
 
@@ -910,9 +885,43 @@ export async function processSendTick(
     };
   }
 
+  // Reclamar próximo draft pendiente (atómico).
+  // Importante: reclamar SOLO cuando podemos enviar inmediatamente, para no dejar
+  // drafts en estado "sending" durante la noche/fuera de ventana.
+  const draftItem = await claimNextPendingDraftItem(campaignId);
+  if (!draftItem) {
+    const sendingCount = await countDraftItemsByStates(campaignId, ["sending"]);
+    if (sendingCount > 0) {
+      const retryAt = new Date(Date.now() + settings.minDelaySeconds * 1000);
+      await updateSendRunNextTick(sendRunId, retryAt.toISOString());
+      await scheduleSendTick({
+        campaignId,
+        sendRunId,
+        delaySeconds: settings.minDelaySeconds,
+      });
+      return {
+        action: "scheduled",
+        reason: "Hay envíos en progreso. Reintentando.",
+        nextTickAt: retryAt.toISOString(),
+      };
+    }
+
+    // No hay más drafts, completar campaña
+    await updateSendRunStatus(sendRunId, "completed", new Date().toISOString());
+    await updateCampaignStatus(campaignId, "completed");
+    await releaseCampaignLock(campaignId);
+
+    // Contar total enviados
+    const stats = await countDraftItems(campaignId);
+
+    return {
+      action: "completed",
+      totalSent: stats,
+    };
+  }
+
   // Resolver cuenta de email para esta campaña (agnóstico de proveedor)
   const emailAccountId = await resolveEmailAccountId(campaign, campaign.createdBy ?? undefined);
-
   if (!emailAccountId) {
     // Pausar la campaña si no hay cuenta
     await pauseCampaign(campaignId);
