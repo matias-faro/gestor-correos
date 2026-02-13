@@ -2,6 +2,7 @@ import {
   getCampaignById,
   createCampaign as createCampaignRepo,
   setCampaignGoogleAccountId,
+  setCampaignEmailAccountId,
   updateCampaignStatus,
   acquireCampaignLock,
   releaseCampaignLock,
@@ -28,6 +29,10 @@ import { getTemplateById } from "@/server/integrations/db/templates-repo";
 import { getSettings } from "@/server/integrations/db/settings-repo";
 import { getGoogleAccountByUserId } from "@/server/integrations/db/google-accounts-repo";
 import {
+  getDefaultEmailAccountForUser,
+  getEmailAccountByGoogleAccountId,
+} from "@/server/integrations/db/email-accounts-repo";
+import {
   createSendRun,
   getActiveSendRun,
   getLatestSendRun,
@@ -51,7 +56,7 @@ import {
   appendSignatureHtml,
   resolveEffectiveSignature,
 } from "@/server/domain/signature";
-import { sendEmail } from "@/server/integrations/gmail/send";
+import { createEmailSender } from "@/server/integrations/email/factory";
 import {
   scheduleSendTick,
   scheduleSendTickAt,
@@ -92,6 +97,54 @@ function buildUnsubscribeUrl(input: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Helper: resolver emailAccountId para una campaña
+// Prioriza email_account_id > google_account_id (legacy) > usuario actual
+// ─────────────────────────────────────────────────────────────────────────────
+async function resolveEmailAccountId(
+  campaign: CampaignResponse,
+  userId?: string
+): Promise<string | null> {
+  // 1. Ya tiene emailAccountId directo
+  if (campaign.emailAccountId) {
+    return campaign.emailAccountId;
+  }
+
+  // 2. Tiene googleAccountId legacy → buscar email_account correspondiente
+  if (campaign.googleAccountId) {
+    const emailAccount = await getEmailAccountByGoogleAccountId(campaign.googleAccountId);
+    if (emailAccount) {
+      // Persistir para futuras llamadas
+      await setCampaignEmailAccountId({
+        campaignId: campaign.id,
+        emailAccountId: emailAccount.id,
+      });
+      return emailAccount.id;
+    }
+  }
+
+  // 3. Fallback: cuenta del usuario que ejecuta la acción
+  if (userId) {
+    const emailAccount = await getDefaultEmailAccountForUser(userId);
+    if (emailAccount) {
+      await setCampaignEmailAccountId({
+        campaignId: campaign.id,
+        emailAccountId: emailAccount.id,
+      });
+      // Backward-compat: si es google, también setear google_account_id
+      if (emailAccount.googleAccountId) {
+        await setCampaignGoogleAccountId({
+          campaignId: campaign.id,
+          googleAccountId: emailAccount.googleAccountId,
+        });
+      }
+      return emailAccount.id;
+    }
+  }
+
+  return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Crear campaña
 // ─────────────────────────────────────────────────────────────────────────────
 export async function createCampaign(
@@ -104,12 +157,26 @@ export async function createCampaign(
     throw new Error("La plantilla seleccionada no existe");
   }
 
-  const googleAccountId =
-    userId ? (await getGoogleAccountByUserId(userId))?.id ?? null : null;
+  // Resolver cuenta de email y Google (para backward-compat)
+  let googleAccountId: string | null = null;
+  let emailAccountId: string | null = null;
+
+  if (userId) {
+    const emailAccount = await getDefaultEmailAccountForUser(userId);
+    if (emailAccount) {
+      emailAccountId = emailAccount.id;
+      googleAccountId = emailAccount.googleAccountId;
+    } else {
+      // Legacy fallback: si no hay email_account pero sí google_account
+      const googleAccount = await getGoogleAccountByUserId(userId);
+      googleAccountId = googleAccount?.id ?? null;
+    }
+  }
 
   return createCampaignRepo(input, {
     createdByUserId: userId,
     googleAccountId,
+    emailAccountId,
   });
 }
 
@@ -417,8 +484,8 @@ export type SendTestRealResult = {
   success: boolean;
   toEmail: string;
   subject: string;
-  gmailMessageId?: string;
-  gmailPermalink?: string;
+  providerMessageId?: string;
+  providerPermalink?: string | null;
 };
 
 export async function sendTestReal(
@@ -492,23 +559,20 @@ export async function sendTestReal(
     signatureHtml: effectiveSignature,
   });
 
-  // Resolver cuenta de Gmail para esta campaña (persistida en DB).
-  // Fallback legacy: si no está seteada, usar la del usuario que ejecuta el test y persistirla.
-  let googleAccountId = campaign.googleAccountId;
-  if (!googleAccountId) {
-    const googleAccount = await getGoogleAccountByUserId(userId);
-    if (!googleAccount) {
-      throw new Error(
-        "No hay cuenta de Gmail conectada para este usuario. Iniciá sesión con Google."
-      );
-    }
-    googleAccountId = googleAccount.id;
-    await setCampaignGoogleAccountId({ campaignId, googleAccountId });
+  // Resolver cuenta de email para esta campaña (agnóstico de proveedor)
+  const emailAccountId = await resolveEmailAccountId(campaign, userId);
+  if (!emailAccountId) {
+    throw new Error(
+      "No hay cuenta de email configurada para este usuario. " +
+      "Configurá una cuenta de email en Ajustes (Gmail, Hostinger u otro proveedor)."
+    );
   }
 
+  // Crear sender usando factory (Gmail API o SMTP según el provider)
+  const sender = await createEmailSender(emailAccountId);
+
   // Enviar el email real
-  const sendResult = await sendEmail({
-    googleAccountId,
+  const sendResult = await sender.sendEmail({
     to: normalizedToEmail,
     subject: `[TEST] ${result.subject}`,
     html: htmlWithSignature,
@@ -528,8 +592,8 @@ export async function sendTestReal(
     success: true,
     toEmail: normalizedToEmail,
     subject: result.subject,
-    gmailMessageId: sendResult.messageId,
-    gmailPermalink: sendResult.permalink,
+    providerMessageId: sendResult.messageId,
+    providerPermalink: sendResult.permalink,
   };
 }
 
@@ -559,19 +623,13 @@ export async function startCampaign(
     throw new Error("No hay emails pendientes para enviar");
   }
 
-  // Resolver cuenta de Gmail para esta campaña (persistida en DB).
-  // Fallback legacy: si no está seteada, usar la del usuario que inicia la campaña y persistirla.
-  if (!campaign.googleAccountId) {
-    const googleAccount = await getGoogleAccountByUserId(userId);
-    if (!googleAccount) {
-      throw new Error(
-        "No hay cuenta de Gmail conectada para este usuario. Iniciá sesión con Google (la cuenta desde la cual se enviará)."
-      );
-    }
-    await setCampaignGoogleAccountId({
-      campaignId,
-      googleAccountId: googleAccount.id,
-    });
+  // Resolver cuenta de email para esta campaña
+  const emailAccountId = await resolveEmailAccountId(campaign, userId);
+  if (!emailAccountId) {
+    throw new Error(
+      "No hay cuenta de email configurada para este usuario. " +
+      "Configurá una cuenta de email en Ajustes (Gmail, Hostinger u otro proveedor)."
+    );
   }
 
   // Intentar tomar el lock global
@@ -852,22 +910,15 @@ export async function processSendTick(
     };
   }
 
-  // Obtener cuenta de Gmail asociada a la campaña (sólido: campaigns.google_account_id).
-  // Fallback legacy: usar la cuenta del creador si existe y persistirla.
-  let googleAccountId = campaign.googleAccountId;
-  if (!googleAccountId && campaign.createdBy) {
-    googleAccountId = (await getGoogleAccountByUserId(campaign.createdBy))?.id ?? null;
-    if (googleAccountId) {
-      await setCampaignGoogleAccountId({ campaignId, googleAccountId });
-    }
-  }
+  // Resolver cuenta de email para esta campaña (agnóstico de proveedor)
+  const emailAccountId = await resolveEmailAccountId(campaign, campaign.createdBy ?? undefined);
 
-  if (!googleAccountId) {
+  if (!emailAccountId) {
     // Pausar la campaña si no hay cuenta
     await pauseCampaign(campaignId);
     return {
       action: "skipped",
-      reason: "No hay cuenta de Gmail asociada a esta campaña",
+      reason: "No hay cuenta de email asociada a esta campaña",
     };
   }
 
@@ -883,10 +934,11 @@ export async function processSendTick(
     signatureHtml: effectiveSignature,
   });
 
-  // Enviar el email
+  // Enviar el email usando la abstracción (Gmail API o SMTP según provider)
   try {
-    const sendResult = await sendEmail({
-      googleAccountId,
+    const sender = await createEmailSender(emailAccountId);
+
+    const sendResult = await sender.sendEmail({
       to: draftItem.toEmail,
       subject: draftItem.renderedSubject,
       html: htmlWithSignature,
@@ -896,7 +948,7 @@ export async function processSendTick(
     // Marcar draft como enviado
     await markDraftItemAsSent(draftItem.id);
 
-    // Guardar evento de envío
+    // Guardar evento de envío (campos gmail_* ahora contienen datos del proveedor)
     await createSendEventSuccess({
       campaignId,
       draftItemId: draftItem.id,

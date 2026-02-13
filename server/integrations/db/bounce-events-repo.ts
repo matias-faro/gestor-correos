@@ -96,7 +96,7 @@ export async function hasBounceEventByMessageId(
 // Insertar un bounce event
 // ─────────────────────────────────────────────────────────────────────────────
 export async function insertBounceEvent(input: {
-  googleAccountId: string;
+  googleAccountId: string | null;
   bouncedEmail: string;
   reason: string | null;
   gmailMessageId: string | null;

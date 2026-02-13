@@ -28,7 +28,7 @@ export async function fetchBounces(options?: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Escanear rebotes en Gmail
+// Escanear rebotes en el buzón de correo
 // ─────────────────────────────────────────────────────────────────────────────
 export async function scanBounces(options?: {
   maxResults?: number;
@@ -50,7 +50,7 @@ export async function scanBounces(options?: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Limpieza manual (bulk): eliminar contactos + trash en Gmail
+// Limpieza manual (bulk): eliminar contactos + trash en correo
 // ─────────────────────────────────────────────────────────────────────────────
 export async function cleanupBounces(input: {
   ids: string[];
@@ -72,7 +72,7 @@ export async function cleanupBounces(input: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Escanear papelera (Gmail) y eliminar contactos por email rebotado (paginado)
+// Escanear papelera y eliminar contactos por email rebotado (paginado)
 // ─────────────────────────────────────────────────────────────────────────────
 export async function scanTrashAndCleanupContacts(options?: {
   maxResults?: number;

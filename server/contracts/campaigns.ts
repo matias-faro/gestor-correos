@@ -72,6 +72,7 @@ export const updateCampaignSchema = z.object({
   filters: campaignFiltersSchema.optional(),
   fromAlias: z.string().max(200).nullable().optional(),
   signatureHtmlOverride: z.string().nullable().optional(),
+  emailAccountId: z.string().uuid().nullable().optional(),
 });
 
 export type UpdateCampaignInput = z.infer<typeof updateCampaignSchema>;
@@ -153,6 +154,7 @@ export type CampaignResponse = {
   signatureHtmlOverride: string | null;
   createdBy: string | null;
   googleAccountId: string | null;
+  emailAccountId: string | null;
   activeLock: boolean;
   createdAt: string;
   updatedAt: string;

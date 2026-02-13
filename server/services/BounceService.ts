@@ -1,5 +1,9 @@
 import { getGoogleAccountByUserId } from "@/server/integrations/db/google-accounts-repo";
 import {
+  getDefaultEmailAccountForUser,
+  getEmailAccountByGoogleAccountId,
+} from "@/server/integrations/db/email-accounts-repo";
+import {
   hasBounceEventByMessageId,
   getBounceEventsByIds,
   deleteBounceEventsByIds,
@@ -9,15 +13,7 @@ import {
   deleteContactsByEmails,
   setContactsBouncedByEmails,
 } from "@/server/integrations/db/contacts-repo";
-import {
-  listBounceMessageIds,
-  listBounceMessageIdsInTrash,
-  getMessageFull,
-  getMessageMetadata,
-  extractBouncedEmailAndReason,
-  processBounceMessage,
-  trashMessage,
-} from "@/server/integrations/gmail/bounces";
+import { createBounceScanner } from "@/server/integrations/email/factory";
 import type {
   CleanupBouncesInput,
   CleanupBouncesResponse,
@@ -28,18 +24,44 @@ import type {
 } from "@/server/contracts/bounces";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Escanear rebotes en Gmail y suprimir contactos
+// Helper: resolver emailAccountId para un usuario
+// Prioriza email_account > google_account (legacy)
+// ─────────────────────────────────────────────────────────────────────────────
+async function resolveEmailAccountIdForUser(userId: string): Promise<string | null> {
+  // 1. Buscar email_account del usuario
+  const emailAccount = await getDefaultEmailAccountForUser(userId);
+  if (emailAccount) {
+    return emailAccount.id;
+  }
+
+  // 2. Fallback legacy: google_account → email_account
+  const googleAccount = await getGoogleAccountByUserId(userId);
+  if (googleAccount) {
+    const emailAccountFromGoogle = await getEmailAccountByGoogleAccountId(googleAccount.id);
+    if (emailAccountFromGoogle) {
+      return emailAccountFromGoogle.id;
+    }
+  }
+
+  return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Escanear rebotes y suprimir contactos (agnóstico de proveedor)
 // ─────────────────────────────────────────────────────────────────────────────
 export async function scanBounces(
   input: ScanBouncesInput,
   userId: string
 ): Promise<ScanBouncesResponse> {
-  const googleAccount = await getGoogleAccountByUserId(userId);
-  if (!googleAccount) {
+  const emailAccountId = await resolveEmailAccountIdForUser(userId);
+  if (!emailAccountId) {
     throw new Error(
-      "No hay cuenta de Gmail conectada para este usuario. Iniciá sesión con Google (la cuenta que recibe los rebotes)."
+      "No hay cuenta de email configurada para este usuario. " +
+      "Configurá una cuenta de email en Ajustes (Gmail, Hostinger u otro proveedor)."
     );
   }
+
+  const scanner = await createBounceScanner(emailAccountId);
 
   const result: ScanBouncesResponse = {
     scanned: 0,
@@ -50,8 +72,7 @@ export async function scanBounces(
   };
 
   // Listar mensajes de rebote
-  const messageIds = await listBounceMessageIds({
-    googleAccountId: googleAccount.id,
+  const messageIds = await scanner.listBounceMessageIds({
     maxResults: input.maxResults,
     newerThanDays: input.newerThanDays,
   });
@@ -59,7 +80,7 @@ export async function scanBounces(
   result.scanned = messageIds.length;
   if (result.scanned === 0) {
     console.warn(
-      "[BounceService] 0 resultados en Gmail. Tip: verificar rango (newerThanDays) y que el mailbox contenga DSN (excluimos Spam/Papelera por diseño)."
+      "[BounceService] 0 resultados. Tip: verificar rango (newerThanDays) y que el mailbox contenga DSN."
     );
   }
 
@@ -75,19 +96,16 @@ export async function scanBounces(
       }
 
       // Procesar mensaje
-      const bounceInfo = await processBounceMessage({
-        googleAccountId: googleAccount.id,
-        messageId,
-      });
+      const bounceInfo = await scanner.processBounceMessage(messageId);
 
       // Solo insertar si pudimos extraer un email
       if (bounceInfo.bouncedEmail) {
         await insertBounceEvent({
-          googleAccountId: googleAccount.id,
+          googleAccountId: null, // Ahora es agnóstico
           bouncedEmail: bounceInfo.bouncedEmail,
           reason: bounceInfo.reason,
           gmailMessageId: messageId,
-          gmailPermalink: bounceInfo.permalink,
+          gmailPermalink: bounceInfo.permalink ?? `bounce-${messageId}`,
         });
 
         result.created++;
@@ -96,10 +114,7 @@ export async function scanBounces(
         // Mover a papelera si está habilitado
         if (input.trashProcessed) {
           try {
-            await trashMessage({
-              googleAccountId: googleAccount.id,
-              messageId,
-            });
+            await scanner.trashMessage(messageId);
             result.trashed++;
           } catch (trashError) {
             // No fallar todo el proceso por no poder mover a papelera
@@ -112,11 +127,11 @@ export async function scanBounces(
       } else {
         // No pudimos extraer email, igual insertamos sin suprimir (para registro)
         await insertBounceEvent({
-          googleAccountId: googleAccount.id,
+          googleAccountId: null,
           bouncedEmail: `unknown-${messageId.slice(0, 8)}`,
           reason: bounceInfo.reason ?? "No se pudo extraer email del mensaje de rebote",
           gmailMessageId: messageId,
-          gmailPermalink: bounceInfo.permalink,
+          gmailPermalink: bounceInfo.permalink ?? `bounce-${messageId}`,
         });
 
         result.created++;
@@ -124,10 +139,7 @@ export async function scanBounces(
         // Mover a papelera aunque no hayamos podido extraer email
         if (input.trashProcessed) {
           try {
-            await trashMessage({
-              googleAccountId: googleAccount.id,
-              messageId,
-            });
+            await scanner.trashMessage(messageId);
             result.trashed++;
           } catch {
             // Ignorar error de trash
@@ -191,12 +203,15 @@ export async function scanTrashAndCleanupContacts(
   input: ScanTrashCleanupInput,
   userId: string
 ): Promise<ScanTrashCleanupResponse> {
-  const googleAccount = await getGoogleAccountByUserId(userId);
-  if (!googleAccount) {
+  const emailAccountId = await resolveEmailAccountIdForUser(userId);
+  if (!emailAccountId) {
     throw new Error(
-      "No hay cuenta de Gmail conectada para este usuario. Iniciá sesión con Google (la cuenta que recibe los rebotes)."
+      "No hay cuenta de email configurada para este usuario. " +
+      "Configurá una cuenta de email en Ajustes (Gmail, Hostinger u otro proveedor)."
     );
   }
+
+  const scanner = await createBounceScanner(emailAccountId);
 
   const result: ScanTrashCleanupResponse = {
     scanned: 0,
@@ -207,8 +222,7 @@ export async function scanTrashAndCleanupContacts(
     errors: [],
   };
 
-  const { messageIds, nextPageToken } = await listBounceMessageIdsInTrash({
-    googleAccountId: googleAccount.id,
+  const { messageIds, nextPageToken } = await scanner.listBounceMessageIdsInTrash({
     maxResults: input.maxResults,
     newerThanDays: input.newerThanDays,
     pageToken: input.pageToken,
@@ -221,21 +235,7 @@ export async function scanTrashAndCleanupContacts(
 
   for (const messageId of messageIds) {
     try {
-      // Primero intentamos metadata (más barato). Si no alcanza, caemos a full.
-      const meta = await getMessageMetadata({
-        googleAccountId: googleAccount.id,
-        messageId,
-      });
-
-      let parsed = extractBouncedEmailAndReason(meta);
-
-      if (!parsed.bouncedEmail) {
-        const full = await getMessageFull({
-          googleAccountId: googleAccount.id,
-          messageId,
-        });
-        parsed = extractBouncedEmailAndReason(full);
-      }
+      const parsed = await scanner.getMessageForBounceExtraction(messageId);
 
       if (parsed.bouncedEmail) {
         extractedEmails.push(parsed.bouncedEmail);
@@ -297,12 +297,15 @@ export async function cleanupBounces(
 
   // Mandar mensajes a papelera (si aplica)
   if (input.trashGmailMessages) {
-    const googleAccount = await getGoogleAccountByUserId(userId);
-    if (!googleAccount) {
+    const emailAccountId = await resolveEmailAccountIdForUser(userId);
+    if (!emailAccountId) {
       throw new Error(
-        "No hay cuenta de Gmail conectada para este usuario. Iniciá sesión con Google."
+        "No hay cuenta de email configurada para este usuario. " +
+        "Configurá una cuenta de email en Ajustes."
       );
     }
+
+    const scanner = await createBounceScanner(emailAccountId);
 
     for (const bounce of bounceEvents) {
       const messageId = bounce.gmailMessageId;
@@ -312,7 +315,7 @@ export async function cleanupBounces(
       }
 
       try {
-        await trashMessage({ googleAccountId: googleAccount.id, messageId });
+        await scanner.trashMessage(messageId);
         result.trashed++;
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Error desconocido";

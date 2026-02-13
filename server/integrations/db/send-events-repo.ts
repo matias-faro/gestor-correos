@@ -59,8 +59,8 @@ export async function createSendEventSuccess(input: {
   campaignId: string;
   draftItemId: string;
   gmailMessageId: string;
-  gmailThreadId: string;
-  gmailPermalink: string;
+  gmailThreadId: string | null;
+  gmailPermalink: string | null;
 }): Promise<SendEventResponse> {
   const supabase = await createServiceClient();
 

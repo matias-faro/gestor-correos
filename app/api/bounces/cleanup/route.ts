@@ -4,7 +4,7 @@ import { cleanupBouncesSchema } from "@/server/contracts/bounces";
 import { cleanupBounces } from "@/server/services/BounceService";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// POST /api/bounces/cleanup - Eliminar contactos rebotados + trash en Gmail
+// POST /api/bounces/cleanup - Eliminar contactos rebotados + mover a papelera
 // ─────────────────────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
   const auth = await requireApiAuth();

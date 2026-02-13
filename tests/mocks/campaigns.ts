@@ -14,6 +14,7 @@ export function createMockCampaign(overrides: Partial<CampaignResponse> = {}): C
     fromAlias: null,
     signatureHtmlOverride: null,
     googleAccountId: "google-account-001",
+    emailAccountId: null,
     createdBy: "user-001",
     activeLock: false,
     createdAt: "2025-01-15T10:00:00.000Z",

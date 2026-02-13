@@ -746,6 +746,7 @@ export function CampaignDetailPage({ campaignId }: CampaignDetailPageProps) {
             <p className="mt-1 text-sm text-slate-400">
               Plantilla: {campaign.templateName ?? "Sin plantilla"}
               {campaign.fromAlias && ` • Remitente: ${campaign.fromAlias}`}
+              {campaign.emailAccountId && " • Cuenta de envío configurada"}
             </p>
           </div>
         </div>
@@ -1497,7 +1498,7 @@ export function CampaignDetailPage({ campaignId }: CampaignDetailPageProps) {
             </div>
             <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-3">
               <p className="text-sm text-blue-300">
-                💡 Se enviará un email real usando tu cuenta de Gmail conectada.
+                💡 Se enviará un email real usando tu cuenta de email configurada.
                 Los datos de contacto usarán valores de prueba.
               </p>
             </div>

@@ -30,6 +30,11 @@ import {
   IconPencil,
   IconLoader2,
   IconPhoto,
+  IconPlug,
+  IconCircleCheck,
+  IconAlertTriangle,
+  IconTrash,
+  IconPlugConnected,
 } from "@tabler/icons-react";
 import type { ContactSource, Settings, SpreadsheetInfo } from "./types";
 import {
@@ -40,6 +45,13 @@ import {
   updateSettings,
   uploadSignatureAsset,
 } from "./api";
+import {
+  fetchEmailAccounts,
+  deleteEmailAccount,
+  verifyEmailAccount,
+  type EmailAccountResponse,
+} from "./email-accounts-api";
+import { EmailAccountDialog } from "./email-account-dialog";
 
 type SettingsPageProps = {
   initialSettings: Settings;
@@ -73,6 +85,13 @@ export function SettingsPage({ initialSettings }: SettingsPageProps) {
   const signatureTextareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Email accounts
+  const [emailAccounts, setEmailAccounts] = useState<EmailAccountResponse[]>([]);
+  const [emailAccountsLoading, setEmailAccountsLoading] = useState(false);
+  const [emailAccountDialogOpen, setEmailAccountDialogOpen] = useState(false);
+  const [verifyingAccountId, setVerifyingAccountId] = useState<string | null>(null);
+  const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
+
   // Contact sources
   const [sources, setSources] = useState<ContactSource[]>([]);
   const [sourcesLoading, setSourcesLoading] = useState(false);
@@ -84,18 +103,24 @@ export function SettingsPage({ initialSettings }: SettingsPageProps) {
   const [sourceName, setSourceName] = useState("");
 
   useEffect(() => {
-    const loadSources = async () => {
+    const loadData = async () => {
       setSourcesLoading(true);
+      setEmailAccountsLoading(true);
       try {
-        const data = await fetchContactSources();
-        setSources(data);
+        const [sourcesData, emailAccountsData] = await Promise.all([
+          fetchContactSources(),
+          fetchEmailAccounts(),
+        ]);
+        setSources(sourcesData);
+        setEmailAccounts(emailAccountsData);
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Error al cargar fuentes");
+        toast.error(err instanceof Error ? err.message : "Error al cargar datos");
       } finally {
         setSourcesLoading(false);
+        setEmailAccountsLoading(false);
       }
     };
-    loadSources();
+    loadData();
   }, []);
 
   const activeSource = sources.find(
@@ -307,6 +332,47 @@ export function SettingsPage({ initialSettings }: SettingsPageProps) {
     }
   };
 
+  // Email account handlers
+  const handleVerifyAccount = async (id: string) => {
+    setVerifyingAccountId(id);
+    try {
+      const result = await verifyEmailAccount(id);
+      if (result.verified) {
+        toast.success("✅ Conexión verificada correctamente");
+        // Actualizar estado local
+        setEmailAccounts((prev) =>
+          prev.map((a) =>
+            a.id === id
+              ? { ...a, verified: true, lastVerifiedAt: new Date().toISOString() }
+              : a
+          )
+        );
+      } else {
+        const errors: string[] = [];
+        if (!result.smtp.success) errors.push(`SMTP: ${result.smtp.error}`);
+        if (!result.imap.success) errors.push(`IMAP: ${result.imap.error}`);
+        toast.error(`Verificación falló:\n${errors.join("\n")}`, { duration: 8000 });
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al verificar");
+    } finally {
+      setVerifyingAccountId(null);
+    }
+  };
+
+  const handleDeleteAccount = async (id: string) => {
+    setDeletingAccountId(id);
+    try {
+      await deleteEmailAccount(id);
+      setEmailAccounts((prev) => prev.filter((a) => a.id !== id));
+      toast.success("Cuenta eliminada");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al eliminar");
+    } finally {
+      setDeletingAccountId(null);
+    }
+  };
+
   const handleSyncActiveSource = async () => {
     if (!settings.activeContactSourceId) {
       toast.error("Seleccioná una fuente activa");
@@ -333,6 +399,106 @@ export function SettingsPage({ initialSettings }: SettingsPageProps) {
           Ajustes del sistema y preferencias de envío
         </p>
       </div>
+
+      {/* Cuentas de Email */}
+      <Card className="border-slate-800 bg-slate-900/50">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-indigo-500/10 p-2">
+                <IconPlug className="h-5 w-5 text-indigo-400" stroke={1.5} />
+              </div>
+              <div>
+                <CardTitle className="text-white">Cuentas de email</CardTitle>
+                <CardDescription className="text-slate-400">
+                  Cuentas configuradas para enviar correos (Gmail, Hostinger, etc.)
+                </CardDescription>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setEmailAccountDialogOpen(true)}
+              className="text-slate-300 hover:text-white"
+            >
+              Agregar cuenta
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {emailAccountsLoading ? (
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+              <IconLoader2 className="h-4 w-4 animate-spin" />
+              Cargando cuentas...
+            </div>
+          ) : emailAccounts.length === 0 ? (
+            <p className="text-sm text-slate-500">
+              No hay cuentas de email configuradas. Agregá una cuenta para poder
+              enviar campañas.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {emailAccounts.map((account) => (
+                <div
+                  key={account.id}
+                  className="flex items-center justify-between rounded-md border border-slate-800 bg-slate-950/60 p-3"
+                >
+                  <div className="flex items-center gap-3">
+                    {account.verified ? (
+                      <IconCircleCheck className="h-5 w-5 text-emerald-400" stroke={2} />
+                    ) : (
+                      <IconAlertTriangle className="h-5 w-5 text-amber-400" stroke={2} />
+                    )}
+                    <div>
+                      <div className="text-sm font-medium text-slate-200">
+                        {account.label}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {account.email} • {account.provider === "google" ? "Gmail API" : "IMAP/SMTP"}
+                        {!account.verified && " • Sin verificar"}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {account.provider === "imap_smtp" && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleVerifyAccount(account.id)}
+                          disabled={verifyingAccountId === account.id}
+                          className="h-8 w-8 text-slate-400 hover:text-white"
+                          title="Verificar conexión"
+                        >
+                          {verifyingAccountId === account.id ? (
+                            <IconLoader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <IconPlugConnected className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteAccount(account.id)}
+                          disabled={deletingAccountId === account.id}
+                          className="h-8 w-8 text-slate-400 hover:text-red-400"
+                          title="Eliminar cuenta"
+                        >
+                          {deletingAccountId === account.id ? (
+                            <IconLoader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <IconTrash className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Ventanas de envío (solo lectura por ahora) */}
@@ -962,6 +1128,21 @@ export function SettingsPage({ initialSettings }: SettingsPageProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog: Agregar cuenta de email */}
+      <EmailAccountDialog
+        open={emailAccountDialogOpen}
+        onOpenChange={setEmailAccountDialogOpen}
+        onCreated={async () => {
+          // Recargar lista completa para tener todos los campos actualizados
+          try {
+            const updated = await fetchEmailAccounts();
+            setEmailAccounts(updated);
+          } catch {
+            // Silencioso: ya se mostró toast de éxito en el dialog
+          }
+        }}
+      />
     </div>
   );
 }
