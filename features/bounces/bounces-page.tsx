@@ -145,7 +145,7 @@ export function BouncesPage() {
 
         safetyPages += 1;
         if (safetyPages > 500) {
-          throw new Error("Abortado por seguridad: demasiadas páginas en Gmail");
+          throw new Error("Abortado por seguridad: demasiadas páginas en la bandeja de correo");
         }
 
         totals.pages += 1;
@@ -398,7 +398,7 @@ export function BouncesPage() {
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center text-slate-400 transition-colors hover:text-white"
-                            title="Ver en Gmail"
+                            title="Ver mensaje original"
                           >
                             <IconExternalLink className="h-4 w-4" />
                           </a>
@@ -454,7 +454,7 @@ export function BouncesPage() {
             </DialogTitle>
             <DialogDescription className="text-slate-400">
               Vas a eliminar {selectedIds.size} contactos (si el email del rebote
-              pudo extraerse) y enviar a papelera los mensajes de rebote en Gmail.
+              pudo extraerse) y enviar a papelera los mensajes de rebote.
               Esta acción no se puede deshacer.
             </DialogDescription>
           </DialogHeader>
@@ -493,8 +493,8 @@ export function BouncesPage() {
             </DialogTitle>
             <DialogDescription className="text-slate-400">
               Esta acción revisa mensajes de rebote (DSN) dentro de la Papelera de
-              Gmail, extrae el “email rebotado” y elimina de la base de datos los
-              contactos cuyo email coincida. No se borran los mails de Gmail (ya
+              tu correo, extrae el “email rebotado” y elimina de la base de datos los
+              contactos cuyo email coincida. Los mails no se borran (ya
               están en Papelera).
             </DialogDescription>
           </DialogHeader>

@@ -19,21 +19,21 @@ export default async function AppLayout({
     .eq("verified", true);
 
   // Fallback: si no hay email_accounts, verificar google_accounts (backward-compat)
-  let hasGmailConnection = (emailAccountCount ?? 0) > 0;
-  if (!hasGmailConnection) {
+  let hasEmailConnection = (emailAccountCount ?? 0) > 0;
+  if (!hasEmailConnection) {
     const { data: googleAccount } = await supabase
       .from("google_accounts")
       .select("refresh_token")
       .eq("user_id", user.id)
       .single();
-    hasGmailConnection = !!googleAccount?.refresh_token;
+    hasEmailConnection = !!googleAccount?.refresh_token;
   }
 
   return (
     <div className="min-h-screen bg-slate-950">
       <AppSidebar />
       <div className="pl-64">
-        <AppHeader user={user} hasGmailConnection={hasGmailConnection} />
+        <AppHeader user={user} hasEmailConnection={hasEmailConnection} />
         <main className="p-6">{children}</main>
       </div>
     </div>

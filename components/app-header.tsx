@@ -20,10 +20,10 @@ type AppHeaderProps = {
     displayName: string | null;
     avatarUrl: string | null;
   };
-  hasGmailConnection: boolean;
+  hasEmailConnection: boolean;
 };
 
-export function AppHeader({ user, hasGmailConnection }: AppHeaderProps) {
+export function AppHeader({ user, hasEmailConnection }: AppHeaderProps) {
   const router = useRouter();
 
   const handleLogout = async () => {
@@ -46,7 +46,7 @@ export function AppHeader({ user, hasGmailConnection }: AppHeaderProps) {
     <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-800 bg-slate-950/80 px-6 backdrop-blur-sm">
       {/* Email Account Status */}
       <div className="flex items-center gap-2">
-        {hasGmailConnection ? (
+        {hasEmailConnection ? (
           <div className="flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1.5 text-sm text-emerald-400">
             <IconCircleCheck className="h-4 w-4" stroke={2} />
             Email conectado
