@@ -5,7 +5,7 @@ import { scanTrashAndCleanupContacts } from "@/server/services/BounceService";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/bounces/trash-cleanup
-// Escanear rebotes en la Papelera (Gmail) y eliminar contactos cuyo email coincida
+// Escanear rebotes en la Papelera y eliminar contactos cuyo email coincida
 // ─────────────────────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
   const auth = await requireApiAuth();

@@ -167,8 +167,8 @@ function LoginContent() {
 
               <div className="text-center">
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Con Google, se conecta automáticamente tu cuenta de Gmail para enviar correos.
-                  Con email, podés configurar cualquier proveedor (Hostinger, etc.) después.
+                  Con Google, se conecta automáticamente tu cuenta de Gmail para enviar correos y acceder a Google Sheets.
+                  Con email/contraseña, podés configurar cualquier proveedor (Hostinger, Outlook, etc.) después en Ajustes.
                 </p>
               </div>
             </>

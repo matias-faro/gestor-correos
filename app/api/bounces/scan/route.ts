@@ -4,7 +4,7 @@ import { scanBouncesSchema } from "@/server/contracts/bounces";
 import { scanBounces } from "@/server/services/BounceService";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// POST /api/bounces/scan - Escanear rebotes en Gmail
+// POST /api/bounces/scan - Escanear rebotes en el buzón de correo
 // ─────────────────────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
   const auth = await requireApiAuth();
