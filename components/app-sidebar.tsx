@@ -54,8 +54,8 @@ function SidebarNav({
         const linkClassName = cn(
           "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
           isActive
-            ? "bg-slate-800 text-slate-100"
-            : "text-slate-400 hover:bg-slate-900 hover:text-slate-100"
+            ? "bg-accent text-accent-foreground"
+            : "text-muted-foreground hover:bg-accent/70 hover:text-foreground"
         );
 
         if (closeOnNavigate) {
@@ -82,21 +82,21 @@ function SidebarNav({
 
 export function AppSidebar() {
   return (
-    <aside className="fixed inset-y-0 left-0 z-50 hidden h-full w-64 flex-col border-r border-slate-800/90 bg-slate-950/95 lg:flex">
-      <div className="flex h-16 items-center gap-3 border-b border-slate-800 px-6">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-800">
-          <IconSend className="h-5 w-5 text-white" stroke={1.5} />
+    <aside className="fixed inset-y-0 left-0 z-50 hidden h-full w-64 flex-col border-r border-border/90 bg-background/95 lg:flex">
+      <div className="flex h-16 items-center gap-3 border-b border-border px-6">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15">
+          <IconSend className="h-5 w-5 text-primary" stroke={1.5} />
         </div>
         <div>
-          <p className="text-sm font-semibold text-slate-100">Gestor</p>
-          <p className="text-xs text-slate-500">Campañas por email</p>
+          <p className="text-sm font-semibold text-foreground">Gestor</p>
+          <p className="text-xs text-muted-foreground">Campañas por email</p>
         </div>
       </div>
 
       <SidebarNav />
 
-      <div className="border-t border-slate-800 px-4 py-3">
-        <p className="text-xs text-slate-500">Gestor de Correos v1.0</p>
+      <div className="border-t border-border px-4 py-3">
+        <p className="text-xs text-muted-foreground">Gestor de Correos v1.0</p>
       </div>
     </aside>
   );
@@ -109,7 +109,7 @@ export function AppMobileSidebar() {
         <Button
           variant="ghost"
           size="icon"
-          className="text-slate-300 hover:bg-slate-800 hover:text-white lg:hidden"
+          className="text-muted-foreground hover:bg-accent hover:text-foreground lg:hidden"
           aria-label="Abrir navegación"
         >
           <IconMenu2 className="h-5 w-5" stroke={1.7} />
@@ -117,10 +117,10 @@ export function AppMobileSidebar() {
       </SheetTrigger>
       <SheetContent
         side="left"
-        className="w-72 border-slate-800 bg-slate-950 p-0 text-slate-100"
+        className="w-72 border-border bg-background p-0 text-foreground"
       >
-        <SheetHeader className="border-b border-slate-800 px-5 py-4 text-left">
-          <SheetTitle className="text-base text-slate-100">Gestor</SheetTitle>
+        <SheetHeader className="border-b border-border px-5 py-4 text-left">
+          <SheetTitle className="text-base text-foreground">Gestor</SheetTitle>
         </SheetHeader>
         <div className="px-3 py-3">
           <SidebarNav mobile closeOnNavigate />

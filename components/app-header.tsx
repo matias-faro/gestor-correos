@@ -45,7 +45,7 @@ export function AppHeader({ user, hasEmailConnection }: AppHeaderProps) {
     : user.email.slice(0, 2).toUpperCase();
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-800/80 bg-slate-950/95 px-4 backdrop-blur-sm lg:px-6">
+    <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border/80 bg-background/95 px-4 backdrop-blur-sm lg:px-6">
       <div className="flex items-center gap-3">
         <AppMobileSidebar />
 
@@ -70,33 +70,33 @@ export function AppHeader({ user, hasEmailConnection }: AppHeaderProps) {
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            className="relative h-10 w-10 rounded-full ring-offset-slate-950 focus-visible:ring-slate-400"
+            className="relative h-10 w-10 rounded-full ring-offset-background focus-visible:ring-ring"
           >
             <Avatar className="h-10 w-10">
               <AvatarImage src={user.avatarUrl ?? undefined} alt={user.displayName ?? user.email} />
-              <AvatarFallback className="bg-slate-800 text-slate-300">
+              <AvatarFallback className="bg-muted text-muted-foreground">
                 {initials}
               </AvatarFallback>
             </Avatar>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
-          className="w-56 border-slate-800 bg-slate-950/95"
+          className="w-56 border-border bg-popover/95"
           align="end"
           forceMount
         >
           <DropdownMenuLabel className="font-normal">
             <div className="flex flex-col space-y-1">
               {user.displayName && (
-                <p className="text-sm font-medium text-white">{user.displayName}</p>
+                <p className="text-sm font-medium text-foreground">{user.displayName}</p>
               )}
-              <p className="text-xs text-slate-400">{user.email}</p>
+              <p className="text-xs text-muted-foreground">{user.email}</p>
             </div>
           </DropdownMenuLabel>
-          <DropdownMenuSeparator className="bg-slate-800" />
+          <DropdownMenuSeparator className="bg-border" />
           <DropdownMenuItem
             onClick={handleLogout}
-            className="cursor-pointer text-slate-300 focus:bg-slate-800 focus:text-white"
+            className="cursor-pointer text-muted-foreground focus:bg-accent focus:text-accent-foreground"
           >
             <IconLogout className="mr-2 h-4 w-4" stroke={1.5} />
             Cerrar sesión
