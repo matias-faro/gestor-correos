@@ -137,8 +137,8 @@ export async function fetchDraftItems(
   const params = new URLSearchParams();
   if (filters?.query) params.set("query", filters.query);
   if (filters?.state) params.set("state", filters.state);
-  if (filters?.limit) params.set("limit", String(filters.limit));
-  if (filters?.offset) params.set("offset", String(filters.offset));
+  if (filters?.limit != null) params.set("limit", String(filters.limit));
+  if (filters?.offset != null) params.set("offset", String(filters.offset));
 
   const queryString = params.toString();
   const url = `${API_BASE}/campaigns/${campaignId}/draft-items${queryString ? `?${queryString}` : ""}`;
@@ -232,8 +232,8 @@ export async function fetchSendEvents(
   options?: { limit?: number; offset?: number }
 ): Promise<{ sendEvents: SendEvent[]; total: number; limit: number; offset: number }> {
   const params = new URLSearchParams();
-  if (options?.limit) params.set("limit", String(options.limit));
-  if (options?.offset) params.set("offset", String(options.offset));
+  if (options?.limit != null) params.set("limit", String(options.limit));
+  if (options?.offset != null) params.set("offset", String(options.offset));
 
   const qs = params.toString();
   const url = `${API_BASE}/campaigns/${campaignId}/send-events${qs ? `?${qs}` : ""}`;
