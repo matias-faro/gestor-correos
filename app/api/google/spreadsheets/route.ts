@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthorizedUser } from "@/server/auth/session";
+import { requireApiAuth } from "@/server/auth/api";
 import { getGoogleAccountByUserId } from "@/server/integrations/db/google-accounts-repo";
 import { listSpreadsheets } from "@/server/integrations/google/drive";
 
@@ -7,12 +7,14 @@ import { listSpreadsheets } from "@/server/integrations/google/drive";
 // GET /api/google/spreadsheets - Listar spreadsheets accesibles
 // ─────────────────────────────────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
+  const auth = await requireApiAuth();
+  if (!auth.success) return auth.response;
+
   try {
-    const user = await getAuthorizedUser();
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("q") ?? undefined;
 
-    const account = await getGoogleAccountByUserId(user.id);
+    const account = await getGoogleAccountByUserId(auth.user.id);
     if (!account) {
       return NextResponse.json(
         { error: "No hay cuenta de Google vinculada" },

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthorizedUser } from "@/server/auth/session";
+import { requireApiAuth } from "@/server/auth/api";
 import {
   createContactSourceSchema,
 } from "@/server/contracts/contact-sources";
@@ -13,8 +13,10 @@ import { getGoogleAccountByUserId } from "@/server/integrations/db/google-accoun
 // GET /api/contact-sources - Listar fuentes
 // ─────────────────────────────────────────────────────────────────────────────
 export async function GET() {
+  const auth = await requireApiAuth();
+  if (!auth.success) return auth.response;
+
   try {
-    await getAuthorizedUser();
     const sources = await listContactSources();
     return NextResponse.json({ sources });
   } catch (err) {
@@ -28,9 +30,10 @@ export async function GET() {
 // POST /api/contact-sources - Crear fuente
 // ─────────────────────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
-  try {
-    const user = await getAuthorizedUser();
+  const auth = await requireApiAuth();
+  if (!auth.success) return auth.response;
 
+  try {
     let body: unknown;
     try {
       body = await request.json();
@@ -46,7 +49,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const account = await getGoogleAccountByUserId(user.id);
+    const account = await getGoogleAccountByUserId(auth.user.id);
     if (!account) {
       return NextResponse.json(
         { error: "No hay cuenta de Google vinculada" },
