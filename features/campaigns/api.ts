@@ -117,7 +117,7 @@ export async function generateSnapshot(
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.error ?? "Error al generar snapshot");
+    throw new Error(data.error ?? "Error al preparar destinatarios");
   }
   return res.json();
 }

@@ -9,6 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/app/empty-state";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,17 +44,15 @@ export function TemplatesTable({
 
   if (templates.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <p className="text-lg text-slate-400">No hay plantillas todavía</p>
-        <p className="mt-2 text-sm text-slate-500">
-          Creá tu primera plantilla con variables personalizables
-        </p>
-      </div>
+      <EmptyState
+        title="Todavía no creaste plantillas"
+        description="Creá tu primera plantilla con asunto y HTML personalizado."
+      />
     );
   }
 
   return (
-    <div className="rounded-lg border border-slate-800">
+    <div className="rounded-xl border border-slate-800 bg-slate-900/30">
       <Table>
         <TableHeader>
           <TableRow className="border-slate-800 hover:bg-transparent">

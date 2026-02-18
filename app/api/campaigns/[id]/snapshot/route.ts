@@ -40,8 +40,8 @@ export async function POST(
       created: result.created,
       capped: result.capped,
       message: result.capped
-        ? `Se crearon ${result.created} drafts (límite alcanzado)`
-        : `Se crearon ${result.created} drafts`,
+        ? `Se prepararon ${result.created} destinatarios (límite alcanzado)`
+        : `Se prepararon ${result.created} destinatarios`,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Error desconocido";

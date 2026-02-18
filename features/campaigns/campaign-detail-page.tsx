@@ -58,6 +58,7 @@ import {
   IconCopy,
   IconExternalLink,
   IconCode,
+  IconArrowRight,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 import {
@@ -89,8 +90,8 @@ import type {
 import type { Contact } from "@/features/contacts/types";
 
 const STATUS_LABELS: Record<CampaignStatus, string> = {
-  draft: "Borrador",
-  ready: "Lista",
+  draft: "Configurando",
+  ready: "Lista para enviar",
   sending: "Enviando",
   paused: "Pausada",
   completed: "Completada",
@@ -233,6 +234,7 @@ export function CampaignDetailPage({ campaignId }: CampaignDetailPageProps) {
   const [cancellingCampaign, setCancellingCampaign] = useState(false);
 
   const [previewItem, setPreviewItem] = useState<DraftItem | TestSendEvent | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Settings for time estimation
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -402,20 +404,20 @@ export function CampaignDetailPage({ campaignId }: CampaignDetailPageProps) {
       });
     }
 
-    // Snapshot check
+    // Preparación de destinatarios
     if (stats.totalDrafts > 0) {
       checks.push({
-        label: "Snapshot",
+        label: "Destinatarios preparados",
         status: "ok",
-        message: `${stats.totalDrafts} borradores generados`,
+        message: `${stats.totalDrafts} destinatarios listos`,
       });
     } else if (campaign.status === "draft") {
       checks.push({
-        label: "Snapshot",
+        label: "Destinatarios preparados",
         status: "warning",
-        message: "Generá el snapshot para ver destinatarios",
+        message: "Prepará los destinatarios para continuar",
         action: {
-          label: "Generar",
+          label: "Preparar",
           onClick: () => setSnapshotDialogOpen(true),
         },
       });
@@ -469,6 +471,68 @@ export function CampaignDetailPage({ campaignId }: CampaignDetailPageProps) {
     return readinessChecks.every((c) => c.status !== "error");
   }, [campaign, stats, readinessChecks]);
 
+  // Check if actions are allowed based on status
+  const canModifyDrafts = campaign?.status === "draft" || campaign?.status === "ready";
+  const isFinalState = campaign?.status === "completed" || campaign?.status === "cancelled";
+
+  const nextRecommendedAction = useMemo(() => {
+    if (!campaign || isFinalState) return null;
+
+    if (campaign.status === "draft") {
+      return {
+        title: "Preparar destinatarios",
+        description:
+          "Generá la lista final de destinatarios para revisar y habilitar el envío.",
+        actionLabel: stats?.totalDrafts
+          ? "Volver a preparar destinatarios"
+          : "Preparar destinatarios",
+        onClick: () => setSnapshotDialogOpen(true),
+        disabled: snapshotLoading,
+      };
+    }
+
+    if (campaign.status === "ready") {
+      return {
+        title: "Iniciar envío",
+        description:
+          "La campaña está lista. Revisá el checklist y comenzá el envío cuando quieras.",
+        actionLabel: "Iniciar envío",
+        onClick: () => setStartDialogOpen(true),
+        disabled: !canStartCampaign,
+      };
+    }
+
+    if (campaign.status === "sending") {
+      return {
+        title: "Monitorear progreso",
+        description:
+          "El envío está en curso. El estado se actualiza automáticamente cada 10 segundos.",
+        actionLabel: "Envío en curso",
+        onClick: () => undefined,
+        disabled: true,
+      };
+    }
+
+    if (campaign.status === "paused") {
+      return {
+        title: "Reanudar envío",
+        description:
+          "La campaña está pausada. Reanudala para continuar desde donde quedó.",
+        actionLabel: "Reanudar envío",
+        onClick: () => setStartDialogOpen(true),
+        disabled: false,
+      };
+    }
+
+    return null;
+  }, [
+    campaign,
+    isFinalState,
+    stats?.totalDrafts,
+    snapshotLoading,
+    canStartCampaign,
+  ]);
+
   // ─────────────────────────────────────────────────────────────────────────────
   // Handlers
   // ─────────────────────────────────────────────────────────────────────────────
@@ -482,7 +546,7 @@ export function CampaignDetailPage({ campaignId }: CampaignDetailPageProps) {
       loadCampaign();
       loadDrafts();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al generar snapshot");
+      toast.error(err instanceof Error ? err.message : "Error al preparar destinatarios");
     } finally {
       setSnapshotLoading(false);
     }
@@ -678,10 +742,6 @@ export function CampaignDetailPage({ campaignId }: CampaignDetailPageProps) {
   const currentPage = Math.floor(draftsOffset / PAGE_SIZE) + 1;
   const totalPages = Math.ceil(draftsTotal / PAGE_SIZE);
 
-  // Check if actions are allowed based on status
-  const canModifyDrafts = campaign?.status === "draft" || campaign?.status === "ready";
-  const isFinalState = campaign?.status === "completed" || campaign?.status === "cancelled";
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -788,7 +848,7 @@ export function CampaignDetailPage({ campaignId }: CampaignDetailPageProps) {
               className="bg-blue-600 hover:bg-blue-700"
             >
               <IconCamera className="mr-2 h-4 w-4" />
-              {stats?.totalDrafts ? "Regenerar snapshot" : "Generar snapshot"}
+              {stats?.totalDrafts ? "Volver a preparar" : "Preparar destinatarios"}
             </Button>
           )}
 
@@ -800,7 +860,7 @@ export function CampaignDetailPage({ campaignId }: CampaignDetailPageProps) {
                 className="border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800"
               >
                 <IconCamera className="mr-2 h-4 w-4" />
-                Regenerar
+                Volver a preparar
               </Button>
               <Button
                 onClick={() => setStartDialogOpen(true)}
@@ -875,6 +935,35 @@ export function CampaignDetailPage({ campaignId }: CampaignDetailPageProps) {
         </div>
       </div>
 
+      {nextRecommendedAction && (
+        <Card className="border-blue-500/30 bg-blue-500/5">
+          <CardContent className="flex flex-col gap-3 py-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-blue-300/80">
+                Siguiente paso recomendado
+              </p>
+              <h2 className="mt-1 text-lg font-semibold text-slate-100">
+                {nextRecommendedAction.title}
+              </h2>
+              <p className="mt-1 text-sm text-slate-400">
+                {nextRecommendedAction.description}
+              </p>
+            </div>
+            <Button
+              type="button"
+              onClick={nextRecommendedAction.onClick}
+              disabled={nextRecommendedAction.disabled}
+              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60"
+            >
+              {nextRecommendedAction.actionLabel}
+              {!nextRecommendedAction.disabled ? (
+                <IconArrowRight className="ml-1 h-4 w-4" />
+              ) : null}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Stepper - Always visible */}
       <Card className="border-slate-800 bg-slate-900/50">
         <CardContent className="py-4">
@@ -898,7 +987,7 @@ export function CampaignDetailPage({ campaignId }: CampaignDetailPageProps) {
             />
             <div className="h-0.5 flex-1 bg-slate-700" />
             <StepIndicator
-              label="Snapshot"
+              label="Preparación"
               status={getStepStatus("snapshot")}
               description={
                 stats?.pending
@@ -999,7 +1088,7 @@ export function CampaignDetailPage({ campaignId }: CampaignDetailPageProps) {
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-white">
               <IconCircleDashed className="h-5 w-5" />
-              Verificación antes de enviar
+              Checklist previo al envío
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -1099,7 +1188,7 @@ export function CampaignDetailPage({ campaignId }: CampaignDetailPageProps) {
           <CardHeader>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <CardTitle className="text-white">
-                Destinatarios
+                Destinatarios preparados
               </CardTitle>
               <div className="flex flex-wrap gap-2">
                 {/* State Filter Tabs */}
@@ -1316,139 +1405,156 @@ export function CampaignDetailPage({ campaignId }: CampaignDetailPageProps) {
         </Card>
       )}
 
-      {/* Test Events */}
-      {testEvents.length > 0 && (
-        <Card className="border-slate-800 bg-slate-900/50">
-          <CardHeader>
-            <CardTitle className="text-white">
-              Pruebas enviadas ({testEvents.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-lg border border-slate-800">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-slate-800 hover:bg-transparent">
-                    <TableHead className="text-slate-400">Email</TableHead>
-                    <TableHead className="text-slate-400">Asunto</TableHead>
-                    <TableHead className="text-slate-400">Fecha</TableHead>
-                    <TableHead className="w-12" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {testEvents.map((event) => (
-                    <TableRow
-                      key={event.id}
-                      className="border-slate-800 hover:bg-slate-900/50"
-                    >
-                      <TableCell className="text-slate-200">
-                        {event.toEmail}
-                      </TableCell>
-                      <TableCell className="max-w-xs truncate text-slate-300">
-                        {event.renderedSubject}
-                      </TableCell>
-                      <TableCell className="text-slate-400">
-                        {new Date(event.createdAt).toLocaleString("es-AR")}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setPreviewItem(event)}
-                          className="h-8 w-8 p-0 text-slate-400 hover:text-white"
-                        >
-                          <IconEye className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {(testEvents.length > 0 || sendEventsTotal > 0) && (
+        <div className="space-y-3">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setShowAdvanced((prev) => !prev)}
+            className="text-slate-300 hover:text-white"
+          >
+            {showAdvanced ? "Ocultar detalle avanzado" : "Ver detalle avanzado"}
+          </Button>
 
-      {/* Send Events (historial real) */}
-      {sendEventsTotal > 0 && (
-        <Card className="border-slate-800 bg-slate-900/50">
-          <CardHeader>
-            <CardTitle className="text-white">
-              Historial de envíos reales ({sendEventsTotal})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-lg border border-slate-800">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-slate-800 hover:bg-transparent">
-                    <TableHead className="text-slate-400">Fecha</TableHead>
-                    <TableHead className="text-slate-400">Destinatario</TableHead>
-                    <TableHead className="text-slate-400">Asunto</TableHead>
-                    <TableHead className="text-slate-400">Estado</TableHead>
-                    <TableHead className="text-slate-400">Detalle</TableHead>
-                    <TableHead className="w-12" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sendEvents.map((event) => (
-                    <TableRow
-                      key={event.id}
-                      className="border-slate-800 hover:bg-slate-900/50"
-                    >
-                      <TableCell className="text-slate-300">
-                        {new Date(event.sentAt).toLocaleString("es-AR")}
-                      </TableCell>
-                      <TableCell className="text-slate-200">
-                        {event.toEmail ?? "—"}
-                      </TableCell>
-                      <TableCell className="max-w-xs truncate text-slate-300">
-                        {event.renderedSubject ?? "—"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={event.status === "sent" ? "default" : "destructive"}
-                          className={event.status === "sent" ? "bg-green-600" : ""}
-                        >
-                          {event.status === "sent" ? "Enviado" : "Fallido"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="max-w-xs truncate text-slate-400">
-                        {event.error ?? "—"}
-                      </TableCell>
-                      <TableCell>
-                        {event.gmailPermalink ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            asChild
-                            className="h-8 w-8 p-0 text-slate-400 hover:text-white"
-                          >
-                            <a
-                              href={event.gmailPermalink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              title="Abrir en Gmail"
+          {showAdvanced && (
+            <div className="space-y-6">
+              {/* Test Events */}
+              {testEvents.length > 0 && (
+                <Card className="border-slate-800 bg-slate-900/50">
+                  <CardHeader>
+                    <CardTitle className="text-white">
+                      Pruebas enviadas ({testEvents.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="rounded-lg border border-slate-800">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="border-slate-800 hover:bg-transparent">
+                            <TableHead className="text-slate-400">Email</TableHead>
+                            <TableHead className="text-slate-400">Asunto</TableHead>
+                            <TableHead className="text-slate-400">Fecha</TableHead>
+                            <TableHead className="w-12" />
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {testEvents.map((event) => (
+                            <TableRow
+                              key={event.id}
+                              className="border-slate-800 hover:bg-slate-900/50"
                             >
-                              <IconExternalLink className="h-4 w-4" />
-                            </a>
-                          </Button>
-                        ) : (
-                          <span className="text-xs text-slate-500">—</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                              <TableCell className="text-slate-200">
+                                {event.toEmail}
+                              </TableCell>
+                              <TableCell className="max-w-xs truncate text-slate-300">
+                                {event.renderedSubject}
+                              </TableCell>
+                              <TableCell className="text-slate-400">
+                                {new Date(event.createdAt).toLocaleString("es-AR")}
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setPreviewItem(event)}
+                                  className="h-8 w-8 p-0 text-slate-400 hover:text-white"
+                                >
+                                  <IconEye className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Send Events (historial real) */}
+              {sendEventsTotal > 0 && (
+                <Card className="border-slate-800 bg-slate-900/50">
+                  <CardHeader>
+                    <CardTitle className="text-white">
+                      Historial de envíos reales ({sendEventsTotal})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="rounded-lg border border-slate-800">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="border-slate-800 hover:bg-transparent">
+                            <TableHead className="text-slate-400">Fecha</TableHead>
+                            <TableHead className="text-slate-400">Destinatario</TableHead>
+                            <TableHead className="text-slate-400">Asunto</TableHead>
+                            <TableHead className="text-slate-400">Estado</TableHead>
+                            <TableHead className="text-slate-400">Detalle</TableHead>
+                            <TableHead className="w-12" />
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {sendEvents.map((event) => (
+                            <TableRow
+                              key={event.id}
+                              className="border-slate-800 hover:bg-slate-900/50"
+                            >
+                              <TableCell className="text-slate-300">
+                                {new Date(event.sentAt).toLocaleString("es-AR")}
+                              </TableCell>
+                              <TableCell className="text-slate-200">
+                                {event.toEmail ?? "—"}
+                              </TableCell>
+                              <TableCell className="max-w-xs truncate text-slate-300">
+                                {event.renderedSubject ?? "—"}
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant={event.status === "sent" ? "default" : "destructive"}
+                                  className={event.status === "sent" ? "bg-green-600" : ""}
+                                >
+                                  {event.status === "sent" ? "Enviado" : "Fallido"}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="max-w-xs truncate text-slate-400">
+                                {event.error ?? "—"}
+                              </TableCell>
+                              <TableCell>
+                                {event.gmailPermalink ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    asChild
+                                    className="h-8 w-8 p-0 text-slate-400 hover:text-white"
+                                  >
+                                    <a
+                                      href={event.gmailPermalink}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      title="Abrir en Gmail"
+                                    >
+                                      <IconExternalLink className="h-4 w-4" />
+                                    </a>
+                                  </Button>
+                                ) : (
+                                  <span className="text-xs text-slate-500">—</span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    {sendEventsTotal > sendEvents.length && (
+                      <p className="mt-3 text-xs text-slate-500">
+                        Mostrando últimos {sendEvents.length} eventos de {sendEventsTotal}.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
             </div>
-            {sendEventsTotal > sendEvents.length && (
-              <p className="mt-3 text-xs text-slate-500">
-                Mostrando últimos {sendEvents.length} eventos de {sendEventsTotal}.
-              </p>
-            )}
-          </CardContent>
-        </Card>
+          )}
+        </div>
       )}
 
       {/* Snapshot Dialog */}
@@ -1456,12 +1562,14 @@ export function CampaignDetailPage({ campaignId }: CampaignDetailPageProps) {
         <DialogContent className="border-slate-800 bg-slate-950 sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-white">
-              {stats?.totalDrafts ? "Regenerar snapshot" : "Generar snapshot"}
+              {stats?.totalDrafts
+                ? "Volver a preparar destinatarios"
+                : "Preparar destinatarios"}
             </DialogTitle>
             <DialogDescription className="text-slate-400">
               {stats?.totalDrafts
-                ? `Ya existen ${stats.totalDrafts} borradores. Regenerar eliminará todos los borradores actuales y creará nuevos.`
-                : "Se crearán borradores renderizados para todos los contactos que coincidan con los filtros de la campaña."}
+                ? `Ya existen ${stats.totalDrafts} destinatarios preparados. Esta acción reemplazará la lista actual.`
+                : "Se generará la lista de destinatarios en base a los filtros de la campaña."}
             </DialogDescription>
           </DialogHeader>
           {stats?.totalDrafts ? (
@@ -1477,8 +1585,7 @@ export function CampaignDetailPage({ campaignId }: CampaignDetailPageProps) {
                 htmlFor="forceSnapshot"
                 className="text-sm text-amber-200"
               >
-                Confirmo que quiero eliminar los {stats.totalDrafts} borradores
-                existentes y regenerar
+                Confirmo que quiero reemplazar los {stats.totalDrafts} destinatarios actuales
               </label>
             </div>
           ) : null}
@@ -1498,10 +1605,10 @@ export function CampaignDetailPage({ campaignId }: CampaignDetailPageProps) {
               {snapshotLoading ? (
                 <>
                   <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generando...
+                  Preparando...
                 </>
               ) : (
-                "Generar"
+                "Confirmar"
               )}
             </Button>
           </DialogFooter>

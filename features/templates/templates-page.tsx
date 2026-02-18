@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/app/page-header";
 import {
   Dialog,
   DialogContent,
@@ -121,19 +122,18 @@ export function TemplatesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-white">Plantillas</h1>
-          <p className="mt-1 text-slate-400">
-            Crea y edita plantillas de email HTML con variables personalizables
-          </p>
-        </div>
-        <Button onClick={handleCreate} className="bg-blue-600 hover:bg-blue-700">
-          <IconPlus className="mr-2 h-4 w-4" stroke={2} />
-          Nueva plantilla
-        </Button>
-      </div>
+      <PageHeader
+        title="Plantillas"
+        description="Diseñá plantillas reutilizables con variables para personalizar cada envío."
+        actions={[
+          {
+            id: "new-template",
+            label: "Nueva plantilla",
+            icon: <IconPlus className="h-4 w-4" stroke={2} />,
+            onClick: handleCreate,
+          },
+        ]}
+      />
 
       {/* Table */}
       <TemplatesTable

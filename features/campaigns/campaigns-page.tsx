@@ -3,6 +3,8 @@
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/app/page-header";
+import { StatusChip } from "@/components/app/status-chip";
 import {
   Dialog,
   DialogContent,
@@ -125,27 +127,26 @@ export function CampaignsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold text-white">Campañas</h1>
-            {sendingCount > 0 && (
-              <span className="flex items-center gap-1.5 rounded-full bg-green-600/20 px-3 py-1 text-sm font-medium text-green-400">
-                <span className="h-2 w-2 animate-pulse rounded-full bg-green-400" />
-                {sendingCount} enviando
-              </span>
-            )}
-          </div>
-          <p className="mt-1 text-slate-400">
-            Gestiona y monitorea tus campañas de email
-          </p>
-        </div>
-        <Button onClick={handleCreate} className="bg-blue-600 hover:bg-blue-700">
-          <IconPlus className="mr-2 h-4 w-4" stroke={2} />
-          Nueva campaña
-        </Button>
-      </div>
+      <PageHeader
+        title="Campañas"
+        description="Creá, prepará y monitoreá tus envíos desde un flujo guiado."
+        badge={
+          sendingCount > 0 ? (
+            <StatusChip tone="success">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-300" />
+              {sendingCount} en envío
+            </StatusChip>
+          ) : undefined
+        }
+        actions={[
+          {
+            id: "new-campaign",
+            label: "Nueva campaña",
+            icon: <IconPlus className="h-4 w-4" stroke={2} />,
+            onClick: handleCreate,
+          },
+        ]}
+      />
 
       {/* Table */}
       <CampaignsTable

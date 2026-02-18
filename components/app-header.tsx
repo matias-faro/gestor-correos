@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { AppMobileSidebar } from "@/components/app-sidebar";
+import { StatusChip } from "@/components/app/status-chip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,23 +45,27 @@ export function AppHeader({ user, hasEmailConnection }: AppHeaderProps) {
     : user.email.slice(0, 2).toUpperCase();
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-800 bg-slate-950/80 px-6 backdrop-blur-sm">
-      {/* Email Account Status */}
-      <div className="flex items-center gap-2">
+    <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-800/80 bg-slate-950/95 px-4 backdrop-blur-sm lg:px-6">
+      <div className="flex items-center gap-3">
+        <AppMobileSidebar />
+
         {hasEmailConnection ? (
-          <div className="flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1.5 text-sm text-emerald-400">
-            <IconCircleCheck className="h-4 w-4" stroke={2} />
+          <StatusChip
+            tone="success"
+            icon={<IconCircleCheck className="h-3.5 w-3.5" stroke={2} />}
+          >
             Email conectado
-          </div>
+          </StatusChip>
         ) : (
-          <div className="flex items-center gap-2 rounded-full bg-amber-500/10 px-3 py-1.5 text-sm text-amber-400">
-            <IconAlertCircle className="h-4 w-4" stroke={2} />
+          <StatusChip
+            tone="warning"
+            icon={<IconAlertCircle className="h-3.5 w-3.5" stroke={2} />}
+          >
             Sin cuenta de email
-          </div>
+          </StatusChip>
         )}
       </div>
 
-      {/* User Menu */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -75,7 +81,7 @@ export function AppHeader({ user, hasEmailConnection }: AppHeaderProps) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
-          className="w-56 border-slate-800 bg-slate-950"
+          className="w-56 border-slate-800 bg-slate-950/95"
           align="end"
           forceMount
         >

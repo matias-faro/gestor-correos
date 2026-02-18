@@ -41,7 +41,7 @@ export function ContactsFiltersPanel({
     filters.includeSuppressed;
 
   return (
-    <div className="space-y-4 rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+    <div className="space-y-4 rounded-xl border border-slate-800 bg-slate-900/40 p-4">
       {/* Búsqueda principal */}
       <div className="relative">
         <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />

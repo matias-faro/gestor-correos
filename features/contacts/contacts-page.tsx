@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/app/page-header";
 import {
   Dialog,
   DialogContent,
@@ -166,19 +167,18 @@ export function ContactsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-white">Contactos</h1>
-          <p className="mt-1 text-slate-400">
-            Gestiona tu base de contactos y segmentos
-          </p>
-        </div>
-        <Button onClick={handleCreate} className="bg-blue-600 hover:bg-blue-700">
-          <IconPlus className="mr-2 h-4 w-4" stroke={2} />
-          Nuevo contacto
-        </Button>
-      </div>
+      <PageHeader
+        title="Contactos"
+        description="Centralizá tu base de contactos y segmentá con filtros y etiquetas."
+        actions={[
+          {
+            id: "new-contact",
+            label: "Nuevo contacto",
+            icon: <IconPlus className="h-4 w-4" stroke={2} />,
+            onClick: handleCreate,
+          },
+        ]}
+      />
 
       {/* Filters */}
       <ContactsFiltersPanel

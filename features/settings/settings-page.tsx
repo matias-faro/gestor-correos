@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import DOMPurify from "dompurify";
+import { PageHeader } from "@/components/app/page-header";
 import {
   Card,
   CardContent,
@@ -419,12 +420,10 @@ export function SettingsPage({ initialSettings }: SettingsPageProps) {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-white">Configuración</h1>
-        <p className="mt-2 text-slate-400">
-          Ajustes del sistema y preferencias de envío
-        </p>
-      </div>
+      <PageHeader
+        title="Configuración"
+        description="Administrá cuentas de envío, límites, seguridad y sincronización de contactos."
+      />
 
       {/* Cuentas de Email */}
       <Card className="border-slate-800 bg-slate-900/50">

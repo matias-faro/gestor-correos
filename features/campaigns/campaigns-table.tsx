@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/app/empty-state";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,14 +23,14 @@ import {
   IconTrash,
   IconTemplate,
   IconUsers,
-  IconSend,
   IconMail,
+  IconPlus,
 } from "@tabler/icons-react";
 import type { Campaign, CampaignStatus, CampaignWithStats } from "./types";
 
 const STATUS_LABELS: Record<CampaignStatus, string> = {
-  draft: "Borrador",
-  ready: "Lista",
+  draft: "Configurando",
+  ready: "Lista para enviar",
   sending: "Enviando",
   paused: "Pausada",
   completed: "Completada",
@@ -51,9 +52,9 @@ const STATUS_VARIANTS: Record<
 const STATUS_COLORS: Record<CampaignStatus, string> = {
   draft: "",
   ready: "",
-  sending: "bg-green-600 animate-pulse",
+  sending: "bg-emerald-600 animate-pulse",
   paused: "bg-amber-600",
-  completed: "bg-green-600",
+  completed: "bg-emerald-600",
   cancelled: "",
 };
 
@@ -68,8 +69,8 @@ type CampaignsTableProps = {
 
 const STATUS_TABS: { id: CampaignStatus | "all"; label: string }[] = [
   { id: "all", label: "Todas" },
-  { id: "draft", label: "Borrador" },
-  { id: "ready", label: "Lista" },
+  { id: "draft", label: "Configurando" },
+  { id: "ready", label: "Listas" },
   { id: "sending", label: "Enviando" },
   { id: "paused", label: "Pausada" },
   { id: "completed", label: "Completada" },
@@ -105,46 +106,27 @@ export function CampaignsTable({
 
   if (campaigns.length === 0) {
     return (
-      <div className="rounded-lg border border-slate-800 bg-slate-900/30 p-12">
-        <div className="mx-auto max-w-md text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-800">
-            <IconMail className="h-8 w-8 text-slate-400" />
-          </div>
-          <h3 className="text-lg font-medium text-white">No hay campañas todavía</h3>
-          <p className="mt-2 text-sm text-slate-400">
-            Creá tu primera campaña siguiendo estos pasos:
-          </p>
-          <div className="mt-6 space-y-3 text-left">
-            <div className="flex items-center gap-3 rounded-lg border border-slate-700 bg-slate-900/50 p-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600/20 text-sm font-medium text-blue-400">
-                1
-              </div>
-              <div className="flex items-center gap-2 text-sm text-slate-300">
-                <IconTemplate className="h-4 w-4 text-slate-500" />
-                Creá una plantilla con tu mensaje
-              </div>
+      <EmptyState
+        icon={<IconMail className="h-6 w-6" />}
+        title="Todavía no creaste campañas"
+        description="Empezá con una campaña nueva. Primero elegís plantilla y audiencia, después validás y enviás."
+        actions={
+          <div className="grid gap-2 text-left">
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <IconTemplate className="h-4 w-4 text-slate-500" />
+              1) Elegí una plantilla
             </div>
-            <div className="flex items-center gap-3 rounded-lg border border-slate-700 bg-slate-900/50 p-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600/20 text-sm font-medium text-blue-400">
-                2
-              </div>
-              <div className="flex items-center gap-2 text-sm text-slate-300">
-                <IconUsers className="h-4 w-4 text-slate-500" />
-                Importá o creá contactos
-              </div>
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <IconUsers className="h-4 w-4 text-slate-500" />
+              2) Definí audiencia
             </div>
-            <div className="flex items-center gap-3 rounded-lg border border-slate-700 bg-slate-900/50 p-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600/20 text-sm font-medium text-blue-400">
-                3
-              </div>
-              <div className="flex items-center gap-2 text-sm text-slate-300">
-                <IconSend className="h-4 w-4 text-slate-500" />
-                Creá la campaña y enviá
-              </div>
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <IconPlus className="h-4 w-4 text-slate-500" />
+              3) Prepará y enviá
             </div>
           </div>
-        </div>
-      </div>
+        }
+      />
     );
   }
 
@@ -167,7 +149,7 @@ export function CampaignsTable({
                 className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                   statusFilter === tab.id
                     ? "bg-slate-700 text-white"
-                    : "bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-white"
+                    : "bg-slate-900/80 text-slate-400 hover:bg-slate-800 hover:text-white"
                 }`}
               >
                 {tab.label}
@@ -183,7 +165,7 @@ export function CampaignsTable({
           <p className="text-slate-500">No hay campañas con este estado</p>
         </div>
       ) : (
-        <div className="rounded-lg border border-slate-800">
+        <div className="rounded-xl border border-slate-800 bg-slate-900/30">
           <Table>
             <TableHeader>
               <TableRow className="border-slate-800 hover:bg-transparent">
