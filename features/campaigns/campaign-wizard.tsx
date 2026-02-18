@@ -31,7 +31,6 @@ import {
   IconEye,
   IconAlertTriangle,
 } from "@tabler/icons-react";
-import { toast } from "sonner";
 import { TagMultiselect } from "@/features/contacts/tag-multiselect";
 import { fetchContacts } from "@/features/contacts/api";
 import { previewTemplate } from "@/features/templates/api";

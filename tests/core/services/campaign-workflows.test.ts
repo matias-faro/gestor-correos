@@ -92,11 +92,6 @@ describe("Campaign Workflows", () => {
     });
 
     it("renderiza variables de plantilla correctamente en drafts", () => {
-      const template = {
-        subjectTpl: "Hola {{FirstName}}",
-        htmlTpl: "<p>Bienvenido {{FirstName}} de {{Company}}</p>",
-      };
-
       const contact = {
         firstName: "María",
         lastName: "González",

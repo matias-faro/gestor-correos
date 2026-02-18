@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect } from "vitest";
 
 // Para testear la construcción del email sin depender de Gmail API real,
 // necesitamos testear la lógica de construcción del mensaje MIME y encoding

@@ -121,7 +121,7 @@ export function EmailAccountDialog({
 
     setSaving(true);
     try {
-      const account = await createEmailAccount({
+      await createEmailAccount({
         label: label || `${PRESETS[preset].label} - ${email}`,
         email,
         smtpHost,
@@ -172,7 +172,6 @@ export function EmailAccountDialog({
 
       if (verifyResult.verified) {
         toast.success("✅ Cuenta verificada y conectada correctamente");
-        account.verified = true;
       } else {
         const errors: string[] = [];
         if (!verifyResult.smtp.success) {

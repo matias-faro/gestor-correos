@@ -23,7 +23,6 @@ import {
   IconTemplate,
   IconUsers,
   IconSend,
-  IconArrowRight,
   IconMail,
 } from "@tabler/icons-react";
 import type { Campaign, CampaignStatus, CampaignWithStats } from "./types";

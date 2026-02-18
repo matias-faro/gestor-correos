@@ -13,21 +13,18 @@ describe("REQ: Plantillas", () => {
   describe("Variables de plantilla", () => {
     it("debe soportar {{FirstName}}", () => {
       // IMPLEMENTADO: templating.ts soporta FirstName
-      const template = "Hola {{FirstName}}";
       const expected = "Hola Juan";
       expect(expected).toContain("Juan");
     });
 
     it("debe soportar {{LastName}}", () => {
       // IMPLEMENTADO: templating.ts soporta LastName
-      const template = "{{LastName}}";
       const expected = "Pérez";
       expect(expected).toBeDefined();
     });
 
     it("debe soportar {{Company}}", () => {
       // IMPLEMENTADO: templating.ts soporta Company
-      const template = "{{Company}}";
       const expected = "Acme Inc";
       expect(expected).toBeDefined();
     });
