@@ -80,6 +80,7 @@ export function CampaignsPage() {
     templateId: string;
     filters: CampaignFilters;
     fromAlias?: string;
+    signatureHtmlOverride?: string;
   }) => {
     setSaving(true);
     try {

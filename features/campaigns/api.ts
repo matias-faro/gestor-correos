@@ -53,6 +53,7 @@ export async function createCampaign(input: {
   templateId: string;
   filters?: CampaignFilters;
   fromAlias?: string;
+  signatureHtmlOverride?: string;
 }): Promise<Campaign> {
   const res = await fetch(`${API_BASE}/campaigns`, {
     method: "POST",
@@ -75,6 +76,7 @@ export async function updateCampaign(input: {
   templateId?: string;
   filters?: CampaignFilters;
   fromAlias?: string | null;
+  signatureHtmlOverride?: string | null;
 }): Promise<Campaign> {
   const res = await fetch(`${API_BASE}/campaigns`, {
     method: "PATCH",

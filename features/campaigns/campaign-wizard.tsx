@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import DOMPurify from "dompurify";
@@ -55,6 +56,7 @@ type CampaignWizardProps = {
     templateId: string;
     filters: CampaignFilters;
     fromAlias?: string;
+    signatureHtmlOverride?: string;
   }) => Promise<void>;
   saving: boolean;
 };
@@ -99,6 +101,7 @@ function CampaignWizardContent(props: {
   const [name, setName] = useState("");
   const [templateId, setTemplateId] = useState(templates[0]?.id ?? "");
   const [fromAlias, setFromAlias] = useState("");
+  const [signatureHtmlOverride, setSignatureHtmlOverride] = useState("");
   const [filters, setFilters] = useState<CampaignFilters>({
     query: "",
     company: "",
@@ -243,6 +246,7 @@ function CampaignWizardContent(props: {
       templateId,
       filters: cleanFilters,
       fromAlias: fromAlias.trim() || undefined,
+      signatureHtmlOverride: signatureHtmlOverride.trim() || undefined,
     });
   };
 
@@ -563,6 +567,22 @@ function CampaignWizardContent(props: {
               </div>
             </div>
 
+            <div className="space-y-1.5">
+              <Label className="text-slate-300">
+                Firma HTML (override para esta campaña)
+              </Label>
+              <Textarea
+                rows={4}
+                placeholder="<p>--<br>Firma especial para esta campaña</p>"
+                value={signatureHtmlOverride}
+                onChange={(e) => setSignatureHtmlOverride(e.target.value)}
+                className="border-slate-700 bg-slate-900 font-mono text-sm text-slate-200"
+              />
+              <p className="text-xs text-slate-500">
+                Si se completa, reemplaza la firma global configurada en Ajustes.
+              </p>
+            </div>
+
             {/* Summary Cards */}
             <div className="grid gap-4 sm:grid-cols-3">
               {/* Template */}
@@ -675,6 +695,14 @@ function CampaignWizardContent(props: {
                     </Badge>
                   )}
                 </div>
+              </div>
+            )}
+
+            {signatureHtmlOverride.trim() && (
+              <div className="rounded-lg border border-violet-500/30 bg-violet-500/10 p-4">
+                <p className="text-sm text-violet-300">
+                  ✓ Esta campaña usará una firma personalizada (override).
+                </p>
               </div>
             )}
           </div>
