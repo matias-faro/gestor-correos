@@ -12,9 +12,8 @@ import { describe, it, expect } from "vitest";
 
 describe("REQ: Filtrado de contactos", () => {
   describe("Exclusión por keywords", () => {
-    it.skip("settings debe tener lista de keywords para excluir", () => {
-      // PENDIENTE: No hay campo de keywords de exclusión en settings
-      // Documentación menciona: Adetech-industrial, Tech-novation, no-reply, etc.
+    it("settings debe tener lista de keywords para excluir", () => {
+      // IMPLEMENTADO: settings ahora expone excludeKeywords y se configura en UI/API.
 
       const settings = {
         excludeKeywords: [
@@ -30,8 +29,8 @@ describe("REQ: Filtrado de contactos", () => {
       expect(settings.excludeKeywords.length).toBeGreaterThan(0);
     });
 
-    it.skip("contactos con email que contiene keyword deben excluirse del snapshot", () => {
-      // PENDIENTE: No está implementada la lógica de exclusión por keywords
+    it("contactos con email que contiene keyword deben excluirse del snapshot", () => {
+      // IMPLEMENTADO: listContactsForSnapshot aplica NOT ILIKE por cada keyword.
 
       const excludeKeywords = ["no-reply", "adetech"];
       const contacts = [

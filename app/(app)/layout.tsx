@@ -30,11 +30,11 @@ export default async function AppLayout({
   }
 
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen bg-slate-950 text-slate-100">
       <AppSidebar />
-      <div className="pl-64">
+      <div className="lg:pl-64">
         <AppHeader user={user} hasEmailConnection={hasEmailConnection} />
-        <main className="p-6">{children}</main>
+        <main className="px-4 py-5 sm:px-6 lg:px-8 lg:py-7">{children}</main>
       </div>
     </div>
   );

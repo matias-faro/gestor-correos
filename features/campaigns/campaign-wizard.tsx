@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import DOMPurify from "dompurify";
@@ -30,7 +31,6 @@ import {
   IconEye,
   IconAlertTriangle,
 } from "@tabler/icons-react";
-import { toast } from "sonner";
 import { TagMultiselect } from "@/features/contacts/tag-multiselect";
 import { fetchContacts } from "@/features/contacts/api";
 import { previewTemplate } from "@/features/templates/api";
@@ -55,6 +55,7 @@ type CampaignWizardProps = {
     templateId: string;
     filters: CampaignFilters;
     fromAlias?: string;
+    signatureHtmlOverride?: string;
   }) => Promise<void>;
   saving: boolean;
 };
@@ -62,9 +63,9 @@ type CampaignWizardProps = {
 type WizardStep = "template" | "audience" | "confirm";
 
 const STEPS: { id: WizardStep; label: string; icon: typeof IconTemplate }[] = [
-  { id: "template", label: "Plantilla", icon: IconTemplate },
+  { id: "template", label: "Configuración", icon: IconTemplate },
   { id: "audience", label: "Audiencia", icon: IconUsers },
-  { id: "confirm", label: "Confirmar", icon: IconRocket },
+  { id: "confirm", label: "Revisión", icon: IconRocket },
 ];
 
 export function CampaignWizard({
@@ -99,6 +100,7 @@ function CampaignWizardContent(props: {
   const [name, setName] = useState("");
   const [templateId, setTemplateId] = useState(templates[0]?.id ?? "");
   const [fromAlias, setFromAlias] = useState("");
+  const [signatureHtmlOverride, setSignatureHtmlOverride] = useState("");
   const [filters, setFilters] = useState<CampaignFilters>({
     query: "",
     company: "",
@@ -243,11 +245,12 @@ function CampaignWizardContent(props: {
       templateId,
       filters: cleanFilters,
       fromAlias: fromAlias.trim() || undefined,
+      signatureHtmlOverride: signatureHtmlOverride.trim() || undefined,
     });
   };
 
   const canProceed = {
-    template: !!templateId,
+    template: !!templateId && !!name.trim(),
     audience: true, // Audience filters are optional
     confirm: !!name.trim() && !!templateId,
   };
@@ -344,11 +347,58 @@ function CampaignWizardContent(props: {
           <div className="h-full flex flex-col gap-4">
             <div className="grid gap-4 lg:grid-cols-2">
               {/* Template Selection */}
-              <div className="space-y-3">
-                <Label className="text-slate-300 font-medium">
-                  Selecciona una plantilla
-                </Label>
-                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label className="text-slate-300 font-medium">
+                    Nombre de campaña *
+                  </Label>
+                  <Input
+                    placeholder="Ej: Newsletter Febrero 2026"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="border-slate-700 bg-slate-900 text-slate-200"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-slate-300 font-medium">
+                    Alias de remitente (opcional)
+                  </Label>
+                  <Input
+                    placeholder="Ej: Equipo Comercial"
+                    value={fromAlias}
+                    onChange={(e) => setFromAlias(e.target.value)}
+                    className="border-slate-700 bg-slate-900 text-slate-200"
+                  />
+                  <p className="text-xs text-slate-500">
+                    Será el nombre visible del remitente.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-slate-300 font-medium">
+                    Firma específica (opcional)
+                  </Label>
+                  <Textarea
+                    rows={3}
+                    placeholder="<p>--<br>Firma especial para esta campaña</p>"
+                    value={signatureHtmlOverride}
+                    onChange={(e) => setSignatureHtmlOverride(e.target.value)}
+                    className="border-slate-700 bg-slate-900 font-mono text-sm text-slate-200"
+                  />
+                </div>
+
+                <div className="space-y-2 pt-1">
+                  <Label className="text-slate-300 font-medium">
+                    Plantilla *
+                  </Label>
+                  <p className="text-xs text-slate-500">
+                    Elegí el contenido base de esta campaña.
+                  </p>
+                </div>
+
+                <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2">
                   {templates.map((t) => (
                     <button
                       key={t.id}
@@ -537,30 +587,12 @@ function CampaignWizardContent(props: {
 
         {currentStep === "confirm" && (
           <div className="h-full flex flex-col gap-6">
-            {/* Name and Alias */}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label className="text-slate-300">Nombre de la campaña *</Label>
-                <Input
-                  placeholder="Ej: Newsletter Enero 2026"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="border-slate-700 bg-slate-900 text-slate-200"
-                  autoFocus
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-slate-300">Alias de remitente</Label>
-                <Input
-                  placeholder="Ej: Mi Empresa"
-                  value={fromAlias}
-                  onChange={(e) => setFromAlias(e.target.value)}
-                  className="border-slate-700 bg-slate-900 text-slate-200"
-                />
-                <p className="text-xs text-slate-500">
-                  Aparecerá como nombre del remitente
-                </p>
-              </div>
+            <div className="rounded-lg border border-slate-700 bg-slate-900/50 p-4">
+              <p className="text-sm text-slate-400">Campaña</p>
+              <p className="mt-1 text-lg font-semibold text-slate-100">{name || "Sin nombre"}</p>
+              <p className="mt-1 text-sm text-slate-500">
+                Remitente: {fromAlias.trim() ? fromAlias : "Se usará el predeterminado"}
+              </p>
             </div>
 
             {/* Summary Cards */}
@@ -675,6 +707,14 @@ function CampaignWizardContent(props: {
                     </Badge>
                   )}
                 </div>
+              </div>
+            )}
+
+            {signatureHtmlOverride.trim() && (
+              <div className="rounded-lg border border-violet-500/30 bg-violet-500/10 p-4">
+                <p className="text-sm text-violet-300">
+                  ✓ Esta campaña usará una firma personalizada (override).
+                </p>
               </div>
             )}
           </div>

@@ -25,6 +25,7 @@ export type Settings = {
   minDelaySeconds: number;
   sendWindows: SendWindows;
   signatureDefaultHtml: string | null;
+  excludeKeywords: string[];
   allowlistEmails: string[];
   allowlistDomains: string[];
   activeContactSourceId: string | null;
@@ -37,6 +38,7 @@ type DbSettings = {
   min_delay_seconds: number;
   send_windows: SendWindows;
   signature_default_html: string | null;
+  exclude_keywords: string[] | null;
   allowlist_emails: string[] | null;
   allowlist_domains: string[] | null;
   active_contact_source_id: string | null;
@@ -53,6 +55,7 @@ function mapSettings(data: DbSettings): Settings {
     minDelaySeconds: data.min_delay_seconds,
     sendWindows: data.send_windows,
     signatureDefaultHtml: data.signature_default_html,
+    excludeKeywords: data.exclude_keywords ?? [],
     allowlistEmails: data.allowlist_emails ?? [],
     allowlistDomains: data.allowlist_domains ?? [],
     activeContactSourceId: data.active_contact_source_id,
@@ -87,6 +90,7 @@ export type UpdateSettingsInput = Partial<{
   minDelaySeconds: number;
   sendWindows: SendWindows;
   signatureDefaultHtml: string | null;
+  excludeKeywords: string[];
   allowlistEmails: string[];
   allowlistDomains: string[];
   activeContactSourceId: string | null;
@@ -111,6 +115,9 @@ export async function updateSettings(input: UpdateSettingsInput): Promise<Settin
   }
   if (input.signatureDefaultHtml !== undefined) {
     updateData.signature_default_html = input.signatureDefaultHtml;
+  }
+  if (input.excludeKeywords !== undefined) {
+    updateData.exclude_keywords = input.excludeKeywords;
   }
   if (input.allowlistEmails !== undefined) {
     updateData.allowlist_emails = input.allowlistEmails;

@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/app/empty-state";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,17 +43,15 @@ export function ContactsTable({
 
   if (contacts.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <p className="text-lg text-slate-400">No se encontraron contactos</p>
-        <p className="mt-2 text-sm text-slate-500">
-          Ajustá los filtros o agregá un nuevo contacto
-        </p>
-      </div>
+      <EmptyState
+        title="No se encontraron contactos"
+        description="Probá ajustando los filtros o cargá nuevos contactos."
+      />
     );
   }
 
   return (
-    <div className="rounded-lg border border-slate-800">
+    <div className="rounded-xl border border-slate-800 bg-slate-900/30">
       <Table>
         <TableHeader>
           <TableRow className="border-slate-800 hover:bg-transparent">

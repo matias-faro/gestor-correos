@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthorizedUser } from "@/server/auth/session";
+import { requireApiAuth } from "@/server/auth/api";
 import {
   getSettings,
   updateSettings,
@@ -10,8 +10,10 @@ import {
 // GET /api/settings - Obtener configuración
 // ─────────────────────────────────────────────────────────────────────────────
 export async function GET() {
+  const auth = await requireApiAuth();
+  if (!auth.success) return auth.response;
+
   try {
-    await getAuthorizedUser();
     const settings = await getSettings();
     return NextResponse.json(settings);
   } catch (err) {
@@ -24,46 +26,71 @@ export async function GET() {
 // PATCH /api/settings - Actualizar configuración
 // ─────────────────────────────────────────────────────────────────────────────
 export async function PATCH(request: NextRequest) {
-  try {
-    await getAuthorizedUser();
+  const auth = await requireApiAuth();
+  if (!auth.success) return auth.response;
 
-    const body = await request.json();
+  try {
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
+    }
+
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ error: "Payload inválido" }, { status: 400 });
+    }
+
+    const payload = body as Record<string, unknown>;
     const input: UpdateSettingsInput = {};
 
     // Validar y extraer campos permitidos
-    if (typeof body.dailyQuota === "number" && body.dailyQuota > 0) {
-      input.dailyQuota = body.dailyQuota;
+    if (typeof payload.dailyQuota === "number" && payload.dailyQuota > 0) {
+      input.dailyQuota = payload.dailyQuota;
     }
 
-    if (typeof body.minDelaySeconds === "number" && body.minDelaySeconds >= 0) {
-      input.minDelaySeconds = body.minDelaySeconds;
+    if (
+      typeof payload.minDelaySeconds === "number" &&
+      payload.minDelaySeconds >= 0
+    ) {
+      input.minDelaySeconds = payload.minDelaySeconds;
     }
 
-    if (typeof body.signatureDefaultHtml === "string" || body.signatureDefaultHtml === null) {
-      input.signatureDefaultHtml = body.signatureDefaultHtml || null;
+    if (
+      typeof payload.signatureDefaultHtml === "string" ||
+      payload.signatureDefaultHtml === null
+    ) {
+      input.signatureDefaultHtml = payload.signatureDefaultHtml || null;
     }
 
-    if (Array.isArray(body.allowlistEmails)) {
-      input.allowlistEmails = body.allowlistEmails.filter(
+    if (Array.isArray(payload.excludeKeywords)) {
+      input.excludeKeywords = payload.excludeKeywords
+        .filter((k: unknown) => typeof k === "string")
+        .map((k) => k.trim().toLowerCase())
+        .filter((k) => k.length > 0);
+    }
+
+    if (Array.isArray(payload.allowlistEmails)) {
+      input.allowlistEmails = payload.allowlistEmails.filter(
         (e: unknown) => typeof e === "string" && e.includes("@")
       );
     }
 
-    if (Array.isArray(body.allowlistDomains)) {
-      input.allowlistDomains = body.allowlistDomains.filter(
+    if (Array.isArray(payload.allowlistDomains)) {
+      input.allowlistDomains = payload.allowlistDomains.filter(
         (d: unknown) => typeof d === "string" && d.length > 0
       );
     }
 
-    if (body.sendWindows && typeof body.sendWindows === "object") {
-      input.sendWindows = body.sendWindows;
+    if (payload.sendWindows && typeof payload.sendWindows === "object") {
+      input.sendWindows = payload.sendWindows as UpdateSettingsInput["sendWindows"];
     }
 
     if (
-      typeof body.activeContactSourceId === "string" ||
-      body.activeContactSourceId === null
+      typeof payload.activeContactSourceId === "string" ||
+      payload.activeContactSourceId === null
     ) {
-      input.activeContactSourceId = body.activeContactSourceId || null;
+      input.activeContactSourceId = payload.activeContactSourceId || null;
     }
 
     const updated = await updateSettings(input);

@@ -34,11 +34,10 @@ describe("REQ: Auditoría de emails", () => {
       expect(sendEvent.gmailPermalink).toBeDefined();
     });
 
-    it.skip("la UI debe mostrar permalink para cada envío", () => {
-      // PENDIENTE: Gap reportado en QA_REPORTE.md
-      // "En la UI no se ve el permalink de Gmail para cada envío"
-
-      const uiShowsPermalink = false;
+    it("la UI debe mostrar permalink para cada envío", () => {
+      // IMPLEMENTADO: campaign-detail-page muestra historial real de send_events
+      // y renderiza link externo cuando existe gmailPermalink.
+      const uiShowsPermalink = true;
       expect(uiShowsPermalink).toBe(true);
     });
   });

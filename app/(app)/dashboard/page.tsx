@@ -1,3 +1,7 @@
+import { createServiceClient } from "@/lib/supabase/server";
+import { EmptyState } from "@/components/app/empty-state";
+import { PageHeader } from "@/components/app/page-header";
+import { StatusChip } from "@/components/app/status-chip";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -5,9 +9,12 @@ import {
   IconTemplate,
   IconSend,
   IconMailFast,
-  IconPlayerPlay,
+  IconChecklist,
+  IconCircleCheck,
+  IconCircleDashed,
   IconPlayerPause,
   IconExternalLink,
+  IconArrowRight,
 } from "@tabler/icons-react";
 import Link from "next/link";
 import {
@@ -18,6 +25,39 @@ import {
 export default async function DashboardPage() {
   const stats = await getDashboardStats();
   const activeCampaign = await getActiveCampaign();
+  const supabase = await createServiceClient();
+
+  const { count: connectedEmailCount } = await supabase
+    .from("email_accounts")
+    .select("id", { count: "exact", head: true })
+    .eq("verified", true);
+
+  const checklistItems = [
+    {
+      id: "email-account",
+      label: "Conectar una cuenta de envío",
+      done: (connectedEmailCount ?? 0) > 0,
+      href: "/settings",
+    },
+    {
+      id: "templates",
+      label: "Crear al menos una plantilla",
+      done: stats.templatesCount > 0,
+      href: "/templates",
+    },
+    {
+      id: "contacts",
+      label: "Cargar contactos para enviar",
+      done: stats.contactsCount > 0,
+      href: "/contacts",
+    },
+    {
+      id: "campaign",
+      label: "Crear y preparar una campaña",
+      done: stats.campaignsCount > 0,
+      href: "/campaigns",
+    },
+  ];
 
   const statCards = [
     {
@@ -25,7 +65,6 @@ export default async function DashboardPage() {
       value: stats.contactsCount.toString(),
       description: "Total de contactos activos",
       icon: IconUsers,
-      color: "from-blue-500 to-blue-600",
       href: "/contacts",
     },
     {
@@ -33,7 +72,6 @@ export default async function DashboardPage() {
       value: stats.templatesCount.toString(),
       description: "Plantillas creadas",
       icon: IconTemplate,
-      color: "from-emerald-500 to-emerald-600",
       href: "/templates",
     },
     {
@@ -41,7 +79,6 @@ export default async function DashboardPage() {
       value: stats.campaignsCount.toString(),
       description: "Campañas totales",
       icon: IconSend,
-      color: "from-violet-500 to-violet-600",
       href: "/campaigns",
     },
     {
@@ -49,32 +86,32 @@ export default async function DashboardPage() {
       value: stats.sentTodayCount.toString(),
       description: "Correos enviados hoy",
       icon: IconMailFast,
-      color: "from-amber-500 to-amber-600",
       href: "/campaigns",
     },
   ];
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-white">Dashboard</h1>
-        <p className="mt-2 text-slate-400">
-          Bienvenido al gestor de campañas de email
-        </p>
-      </div>
+      <PageHeader
+        title="Dashboard"
+        description="Resumen de tu operación y próximos pasos para lanzar campañas."
+        badge={
+          activeCampaign ? (
+            <StatusChip tone="success">Campaña en curso</StatusChip>
+          ) : undefined
+        }
+      />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {statCards.map((stat) => (
           <Link key={stat.title} href={stat.href}>
-            <Card className="border-slate-800 bg-slate-900/50 transition-colors hover:border-slate-700 hover:bg-slate-900/70">
+            <Card className="border-slate-800 bg-slate-900/40 transition-colors hover:border-slate-700 hover:bg-slate-900/70">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-slate-400">
                   {stat.title}
                 </CardTitle>
-                <div
-                  className={`rounded-lg bg-gradient-to-br ${stat.color} p-2`}
-                >
-                  <stat.icon className="h-4 w-4 text-white" stroke={2} />
+                <div className="rounded-lg bg-slate-800 p-2">
+                  <stat.icon className="h-4 w-4 text-slate-200" stroke={1.8} />
                 </div>
               </CardHeader>
               <CardContent>
@@ -86,10 +123,38 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      {/* Sección de campaña activa */}
-      <Card className="border-slate-800 bg-slate-900/50">
+      <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
+        <Card className="border-slate-800 bg-slate-900/40">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-white">
+              <IconChecklist className="h-5 w-5 text-slate-300" />
+              Primeros pasos
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {checklistItems.map((item) => (
+              <Link
+                key={item.id}
+                href={item.href}
+                className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/50 px-4 py-3 transition-colors hover:border-slate-700 hover:bg-slate-900/70"
+              >
+                <div className="flex items-center gap-3">
+                  {item.done ? (
+                    <IconCircleCheck className="h-5 w-5 text-emerald-400" />
+                  ) : (
+                    <IconCircleDashed className="h-5 w-5 text-slate-500" />
+                  )}
+                  <p className="text-sm text-slate-200">{item.label}</p>
+                </div>
+                <IconArrowRight className="h-4 w-4 text-slate-500" />
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card className="border-slate-800 bg-slate-900/40">
         <CardHeader>
-          <CardTitle className="text-white">Campaña activa</CardTitle>
+          <CardTitle className="text-white">Estado de envío</CardTitle>
         </CardHeader>
         <CardContent>
           {activeCampaign ? (
@@ -97,11 +162,11 @@ export default async function DashboardPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   {activeCampaign.status === "sending" ? (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500/20">
-                      <IconPlayerPlay className="h-5 w-5 text-green-400" />
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/15">
+                      <IconSend className="h-5 w-5 text-emerald-400" />
                     </div>
                   ) : (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/20">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/15">
                       <IconPlayerPause className="h-5 w-5 text-amber-400" />
                     </div>
                   )}
@@ -110,19 +175,22 @@ export default async function DashboardPage() {
                       {activeCampaign.name}
                     </h3>
                     <p className="text-sm text-slate-400">
-                      {activeCampaign.templateName ?? "Sin plantilla"}
+                      {activeCampaign.templateName ?? "Plantilla no definida"}
                     </p>
                   </div>
                 </div>
                 <Link href={`/campaigns/${activeCampaign.id}`}>
-                  <Button variant="outline" size="sm" className="border-slate-700 text-slate-300 hover:bg-slate-800">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-slate-700 text-slate-300 hover:bg-slate-800"
+                  >
                     <IconExternalLink className="mr-2 h-4 w-4" />
                     Ver detalles
                   </Button>
                 </Link>
               </div>
 
-              {/* Barra de progreso */}
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-400">Progreso</span>
@@ -143,31 +211,32 @@ export default async function DashboardPage() {
                   />
                 </div>
                 <div className="flex justify-between text-xs text-slate-500">
-                  <span>
-                    {activeCampaign.status === "sending" ? "Enviando..." : "Pausada"}
-                  </span>
+                  <span>{activeCampaign.status === "sending" ? "Enviando" : "Pausada"}</span>
                   <span>{activeCampaign.pendingCount} pendientes</span>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <IconSend className="h-12 w-12 text-slate-600" stroke={1} />
-              <p className="mt-4 text-slate-400">
-                No hay campañas activas en este momento
-              </p>
-              <p className="mt-1 text-sm text-slate-500">
-                Creá una campaña desde la sección Campañas
-              </p>
-              <Link href="/campaigns" className="mt-4">
-                <Button variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800">
-                  Ir a Campañas
-                </Button>
-              </Link>
-            </div>
+            <EmptyState
+              icon={<IconSend className="h-6 w-6" stroke={1.5} />}
+              title="No hay campañas activas"
+              description="Creá una campaña y prepará destinatarios para comenzar a enviar."
+              actions={
+                <Link href="/campaigns">
+                  <Button
+                    variant="outline"
+                    className="border-slate-700 text-slate-300 hover:bg-slate-800"
+                  >
+                    Ir a campañas
+                  </Button>
+                </Link>
+              }
+              className="px-4 py-9"
+            />
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

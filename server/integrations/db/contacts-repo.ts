@@ -419,6 +419,7 @@ export type SnapshotFilters = {
   position?: string;
   tagIds?: string[];
   sourceId?: string;
+  excludeKeywords?: string[];
 };
 
 const SNAPSHOT_CAP = 20000;
@@ -460,6 +461,15 @@ export async function listContactsForSnapshot(
   // Filtro position
   if (filters.position) {
     query = query.ilike("position", `%${filters.position}%`);
+  }
+
+  // Excluir contactos por keywords en email (ej: no-reply, dominio propio, etc.)
+  if (filters.excludeKeywords && filters.excludeKeywords.length > 0) {
+    for (const keyword of filters.excludeKeywords) {
+      const normalizedKeyword = keyword.trim();
+      if (!normalizedKeyword) continue;
+      query = query.not("email", "ilike", `%${normalizedKeyword}%`);
+    }
   }
 
   // Filtro por tags (AND estricto)

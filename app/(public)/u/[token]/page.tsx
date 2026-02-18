@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { IconMailOff, IconCheck, IconAlertTriangle } from "@tabler/icons-react";
+import { IconCheck, IconAlertTriangle } from "@tabler/icons-react";
 import { unsubscribeByToken, UnsubscribeError } from "@/server/services/UnsubscribeService";
 
 // Forzar render dinámico para cada token (no cachear)

@@ -24,8 +24,8 @@ export async function fetchContacts(
   if (filters.includeUnsubscribed) params.set("includeUnsubscribed", "true");
   if (filters.includeSuppressed) params.set("includeSuppressed", "true");
   if (filters.sourceId) params.set("sourceId", filters.sourceId);
-  if (filters.limit) params.set("limit", String(filters.limit));
-  if (filters.offset) params.set("offset", String(filters.offset));
+  if (filters.limit != null) params.set("limit", String(filters.limit));
+  if (filters.offset != null) params.set("offset", String(filters.offset));
   if (filters.tagIds && filters.tagIds.length > 0) {
     params.set("tagIds", filters.tagIds.join(","));
   }

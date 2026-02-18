@@ -16,6 +16,13 @@ type DbSendEvent = {
   error: string | null;
 };
 
+type DbSendEventWithDraft = DbSendEvent & {
+  draft_items: {
+    to_email: string;
+    rendered_subject: string;
+  } | null;
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Mapear DB a respuesta
 // ─────────────────────────────────────────────────────────────────────────────
@@ -30,6 +37,20 @@ function mapSendEvent(data: DbSendEvent): SendEventResponse {
     gmailPermalink: data.gmail_permalink,
     status: data.status,
     error: data.error,
+  };
+}
+
+export type SendEventWithDraftMeta = SendEventResponse & {
+  toEmail: string | null;
+  renderedSubject: string | null;
+};
+
+function mapSendEventWithDraftMeta(data: DbSendEventWithDraft): SendEventWithDraftMeta {
+  const event = mapSendEvent(data);
+  return {
+    ...event,
+    toEmail: data.draft_items?.to_email ?? null,
+    renderedSubject: data.draft_items?.rendered_subject ?? null,
   };
 }
 
@@ -173,4 +194,31 @@ export async function listSendEvents(
   }
 
   return (data as DbSendEvent[]).map(mapSendEvent);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Listar send events con metadata del draft asociado (destinatario/asunto)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function listSendEventsWithDraftMeta(
+  campaignId: string,
+  limit = 100,
+  offset = 0
+): Promise<{ sendEvents: SendEventWithDraftMeta[]; total: number }> {
+  const supabase = await createServiceClient();
+
+  const { data, error, count } = await supabase
+    .from("send_events")
+    .select("*, draft_items(to_email, rendered_subject)", { count: "exact" })
+    .eq("campaign_id", campaignId)
+    .order("sent_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) {
+    throw new Error(`Error al listar send events: ${error.message}`);
+  }
+
+  return {
+    sendEvents: (data as DbSendEventWithDraft[]).map(mapSendEventWithDraftMeta),
+    total: count ?? 0,
+  };
 }

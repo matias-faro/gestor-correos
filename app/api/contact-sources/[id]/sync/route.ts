@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthorizedUser } from "@/server/auth/session";
+import { requireApiAuth } from "@/server/auth/api";
 import { contactSourceIdSchema } from "@/server/contracts/contact-sources";
 import { scheduleContactSync } from "@/server/integrations/qstash/client";
 
@@ -10,9 +10,10 @@ export async function POST(
   _request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  try {
-    await getAuthorizedUser();
+  const auth = await requireApiAuth();
+  if (!auth.success) return auth.response;
 
+  try {
     const { id } = await context.params;
     const parsed = contactSourceIdSchema.safeParse({ id });
     if (!parsed.success) {

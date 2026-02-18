@@ -7,6 +7,8 @@ import type {
   DraftItemsListResponse,
   TestSendEvent,
   TestSendEventsListResponse,
+  SendEvent,
+  SendEventsListResponse,
   SnapshotResponse,
   TestSendResponse,
   CampaignFilters,
@@ -51,6 +53,7 @@ export async function createCampaign(input: {
   templateId: string;
   filters?: CampaignFilters;
   fromAlias?: string;
+  signatureHtmlOverride?: string;
 }): Promise<Campaign> {
   const res = await fetch(`${API_BASE}/campaigns`, {
     method: "POST",
@@ -73,6 +76,7 @@ export async function updateCampaign(input: {
   templateId?: string;
   filters?: CampaignFilters;
   fromAlias?: string | null;
+  signatureHtmlOverride?: string | null;
 }): Promise<Campaign> {
   const res = await fetch(`${API_BASE}/campaigns`, {
     method: "PATCH",
@@ -113,7 +117,7 @@ export async function generateSnapshot(
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.error ?? "Error al generar snapshot");
+    throw new Error(data.error ?? "Error al preparar destinatarios");
   }
   return res.json();
 }
@@ -133,8 +137,8 @@ export async function fetchDraftItems(
   const params = new URLSearchParams();
   if (filters?.query) params.set("query", filters.query);
   if (filters?.state) params.set("state", filters.state);
-  if (filters?.limit) params.set("limit", String(filters.limit));
-  if (filters?.offset) params.set("offset", String(filters.offset));
+  if (filters?.limit != null) params.set("limit", String(filters.limit));
+  if (filters?.offset != null) params.set("offset", String(filters.offset));
 
   const queryString = params.toString();
   const url = `${API_BASE}/campaigns/${campaignId}/draft-items${queryString ? `?${queryString}` : ""}`;
@@ -218,6 +222,30 @@ export async function fetchTestSendEvents(
   }
   const data: TestSendEventsListResponse = await res.json();
   return data.testSendEvents;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Listar eventos reales de envío de campaña (send_events)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function fetchSendEvents(
+  campaignId: string,
+  options?: { limit?: number; offset?: number }
+): Promise<{ sendEvents: SendEvent[]; total: number; limit: number; offset: number }> {
+  const params = new URLSearchParams();
+  if (options?.limit != null) params.set("limit", String(options.limit));
+  if (options?.offset != null) params.set("offset", String(options.offset));
+
+  const qs = params.toString();
+  const url = `${API_BASE}/campaigns/${campaignId}/send-events${qs ? `?${qs}` : ""}`;
+
+  const res = await fetch(url);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error ?? "Error al cargar historial de envíos");
+  }
+
+  const data: SendEventsListResponse = await res.json();
+  return data;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

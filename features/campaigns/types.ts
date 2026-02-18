@@ -67,6 +67,20 @@ export type TestSendEvent = {
   createdAt: string;
 };
 
+export type SendEvent = {
+  id: string;
+  campaignId: string;
+  draftItemId: string;
+  sentAt: string;
+  gmailMessageId: string | null;
+  gmailThreadId: string | null;
+  gmailPermalink: string | null;
+  status: "sent" | "failed";
+  error: string | null;
+  toEmail: string | null;
+  renderedSubject: string | null;
+};
+
 // Campaign with stats (for list view)
 export type CampaignWithStats = Campaign & {
   stats: CampaignStats;
@@ -91,6 +105,13 @@ export type DraftItemsListResponse = {
 
 export type TestSendEventsListResponse = {
   testSendEvents: TestSendEvent[];
+};
+
+export type SendEventsListResponse = {
+  sendEvents: SendEvent[];
+  total: number;
+  limit: number;
+  offset: number;
 };
 
 export type SnapshotResponse = {

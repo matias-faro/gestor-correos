@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import DOMPurify from "dompurify";
+import { PageHeader } from "@/components/app/page-header";
 import {
   Card,
   CardContent,
@@ -66,6 +67,7 @@ export function SettingsPage({ initialSettings }: SettingsPageProps) {
   // Dialog states
   const [limitsDialogOpen, setLimitsDialogOpen] = useState(false);
   const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
+  const [excludeKeywordsDialogOpen, setExcludeKeywordsDialogOpen] = useState(false);
   const [allowlistDialogOpen, setAllowlistDialogOpen] = useState(false);
   const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
 
@@ -73,6 +75,9 @@ export function SettingsPage({ initialSettings }: SettingsPageProps) {
   const [dailyQuota, setDailyQuota] = useState(settings.dailyQuota.toString());
   const [minDelay, setMinDelay] = useState(settings.minDelaySeconds.toString());
   const [signature, setSignature] = useState(settings.signatureDefaultHtml ?? "");
+  const [excludeKeywords, setExcludeKeywords] = useState(
+    settings.excludeKeywords.join("\n")
+  );
   const [allowlistEmails, setAllowlistEmails] = useState(
     settings.allowlistEmails.join("\n")
   );
@@ -279,6 +284,28 @@ export function SettingsPage({ initialSettings }: SettingsPageProps) {
     }
   };
 
+  // Save exclude keywords
+  const handleSaveExcludeKeywords = async () => {
+    setSaving(true);
+    try {
+      const keywords = excludeKeywords
+        .split("\n")
+        .map((k) => k.trim().toLowerCase())
+        .filter((k) => k.length > 0);
+
+      const updated = await updateSettings({
+        excludeKeywords: keywords,
+      });
+      setSettings(updated);
+      setExcludeKeywordsDialogOpen(false);
+      toast.success("Keywords de exclusión actualizadas");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al guardar");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleActiveSourceChange = async (value: string) => {
     setSourceSaving(true);
     try {
@@ -393,12 +420,10 @@ export function SettingsPage({ initialSettings }: SettingsPageProps) {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-white">Configuración</h1>
-        <p className="mt-2 text-slate-400">
-          Ajustes del sistema y preferencias de envío
-        </p>
-      </div>
+      <PageHeader
+        title="Configuración"
+        description="Administrá cuentas de envío, límites, seguridad y sincronización de contactos."
+      />
 
       {/* Cuentas de Email */}
       <Card className="border-slate-800 bg-slate-900/50">
@@ -669,6 +694,56 @@ export function SettingsPage({ initialSettings }: SettingsPageProps) {
               </div>
             ) : (
               <p className="text-sm text-slate-500">Sin restricciones configuradas</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Keywords de exclusión para snapshot */}
+        <Card className="border-slate-800 bg-slate-900/50">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-red-500/10 p-2">
+                  <IconAlertTriangle className="h-5 w-5 text-red-400" stroke={1.5} />
+                </div>
+                <div>
+                  <CardTitle className="text-white">Exclusión por keywords</CardTitle>
+                  <CardDescription className="text-slate-400">
+                    Emails que contengan estas keywords no entran al snapshot
+                  </CardDescription>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setExcludeKeywords(settings.excludeKeywords.join("\n"));
+                  setExcludeKeywordsDialogOpen(true);
+                }}
+                className="text-slate-400 hover:text-white"
+              >
+                <IconPencil className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {settings.excludeKeywords.length > 0 ? (
+              <div className="space-y-2 text-sm text-slate-300">
+                {settings.excludeKeywords.slice(0, 6).map((kw) => (
+                  <div key={kw} className="rounded bg-slate-900/70 px-2 py-1 font-mono text-xs">
+                    {kw}
+                  </div>
+                ))}
+                {settings.excludeKeywords.length > 6 && (
+                  <p className="text-xs text-slate-500">
+                    +{settings.excludeKeywords.length - 6} más
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">
+                No hay keywords configuradas.
+              </p>
             )}
           </CardContent>
         </Card>
@@ -1023,6 +1098,61 @@ export function SettingsPage({ initialSettings }: SettingsPageProps) {
               onClick={handleSaveAllowlist}
               disabled={saving}
               className="bg-amber-600 hover:bg-amber-700"
+            >
+              {saving ? (
+                <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Exclude keywords */}
+      <Dialog
+        open={excludeKeywordsDialogOpen}
+        onOpenChange={setExcludeKeywordsDialogOpen}
+      >
+        <DialogContent className="border-slate-800 bg-slate-950 sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-white">Keywords de exclusión</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Si un email contiene una keyword, se excluye del snapshot de campañas.
+              Una keyword por línea.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid gap-2">
+              <Label htmlFor="excludeKeywords" className="text-slate-300">
+                Keywords (una por línea)
+              </Label>
+              <Textarea
+                id="excludeKeywords"
+                value={excludeKeywords}
+                onChange={(e) => setExcludeKeywords(e.target.value)}
+                rows={8}
+                placeholder={"no-reply\nmailer-daemon\nmidominio.com"}
+                className="border-slate-700 bg-slate-900 font-mono text-sm text-slate-200"
+              />
+              <p className="text-xs text-slate-500">
+                Ejemplos comunes: <code>no-reply</code>, <code>mailer-daemon</code>, dominios internos.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setExcludeKeywordsDialogOpen(false)}
+              className="text-slate-400 hover:text-white"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSaveExcludeKeywords}
+              disabled={saving}
+              className="bg-red-600 hover:bg-red-700"
             >
               {saving ? (
                 <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />

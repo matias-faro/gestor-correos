@@ -20,6 +20,7 @@ export type Settings = {
   minDelaySeconds: number;
   sendWindows: SendWindows;
   signatureDefaultHtml: string | null;
+  excludeKeywords: string[];
   allowlistEmails: string[];
   allowlistDomains: string[];
   activeContactSourceId: string | null;
@@ -31,6 +32,7 @@ export type UpdateSettingsInput = Partial<{
   minDelaySeconds: number;
   sendWindows: SendWindows;
   signatureDefaultHtml: string | null;
+  excludeKeywords: string[];
   allowlistEmails: string[];
   allowlistDomains: string[];
   activeContactSourceId: string | null;

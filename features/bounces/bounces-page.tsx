@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/app/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -267,39 +268,31 @@ export function BouncesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-white">Rebotes</h1>
-          <p className="mt-1 text-slate-400">
-            Detecta y gestiona emails rebotados
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={handleScan}
-            disabled={scanning || trashCleaning}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            {scanning ? (
-              <IconLoader2 className="mr-2 h-4 w-4 animate-spin" stroke={2} />
+      <PageHeader
+        title="Rebotes"
+        description="Detectá automáticamente correos rebotados y mantené limpia tu base de contactos."
+        actions={[
+          {
+            id: "scan-bounces",
+            label: scanning ? "Escaneando..." : "Escanear rebotes",
+            icon: scanning ? (
+              <IconLoader2 className="h-4 w-4 animate-spin" stroke={2} />
             ) : (
-              <IconRefresh className="mr-2 h-4 w-4" stroke={2} />
-            )}
-            {scanning ? "Escaneando..." : "Escanear rebotes"}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setTrashCleanupDialogOpen(true)}
-            disabled={scanning || trashCleaning}
-            className="border-red-500/40 bg-slate-950 text-red-300 hover:bg-red-500/10 hover:text-red-200"
-            title="Escanea DSN en Papelera y elimina contactos por email rebotado"
-          >
-            <IconTrash className="mr-2 h-4 w-4" />
-            Escanear papelera y borrar contactos
-          </Button>
-        </div>
-      </div>
+              <IconRefresh className="h-4 w-4" stroke={2} />
+            ),
+            onClick: handleScan,
+            disabled: scanning || trashCleaning,
+          },
+          {
+            id: "scan-trash-cleanup",
+            label: "Escanear papelera",
+            icon: <IconTrash className="h-4 w-4" />,
+            onClick: () => setTrashCleanupDialogOpen(true),
+            disabled: scanning || trashCleaning,
+            variant: "outline",
+          },
+        ]}
+      />
 
       {/* Table Card */}
       <Card className="border-slate-800 bg-slate-900/50">

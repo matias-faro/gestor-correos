@@ -21,6 +21,7 @@ export function createMockSettings(overrides: Partial<Settings> = {}): Settings 
     minDelaySeconds: 30,
     sendWindows: defaultWindows,
     signatureDefaultHtml: null,
+    excludeKeywords: [],
     allowlistEmails: [],
     allowlistDomains: [],
     activeContactSourceId: null,

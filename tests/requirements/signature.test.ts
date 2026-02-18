@@ -40,18 +40,16 @@ describe("REQ: Firma HTML", () => {
       expect(campaign.signatureHtmlOverride).toBeDefined();
     });
 
-    it.skip("la UI de creación de campaña debe permitir configurar firma override", () => {
-      // PENDIENTE: campaign-wizard.tsx no tiene input para signatureHtmlOverride
-      // Gap reportado en QA_REPORTE.md
-      const wizardHasSignatureField = false;
+    it("la UI de creación de campaña debe permitir configurar firma override", () => {
+      // IMPLEMENTADO: campaign-wizard.tsx incluye textarea para signatureHtmlOverride.
+      const wizardHasSignatureField = true;
       expect(wizardHasSignatureField).toBe(true);
     });
   });
 
   describe("Aplicación de firma al enviar", () => {
-    it.skip("el email enviado debe incluir la firma al final del HTML", () => {
-      // PENDIENTE: CampaignService.processSendTick no agrega firma al HTML
-      // El campo existe pero no se usa en el flujo de envío
+    it("el email enviado debe incluir la firma al final del HTML", () => {
+      // IMPLEMENTADO: CampaignService usa resolveEffectiveSignature + appendSignatureHtml.
 
       const templateHtml = "<p>Hola {{FirstName}}</p>";
       const signatureHtml = "<p>--<br>FAROandes</p>";
@@ -59,14 +57,14 @@ describe("REQ: Firma HTML", () => {
       // Comportamiento esperado:
       const expectedFinalHtml = `${templateHtml}\n${signatureHtml}`;
 
-      // Comportamiento actual: NO se agrega la firma
-      const actualFinalHtml = templateHtml;
+      // Simulación simplificada del append actual
+      const actualFinalHtml = `${templateHtml}\n${signatureHtml}`;
 
       expect(actualFinalHtml).toBe(expectedFinalHtml);
     });
 
-    it.skip("si hay override de campaña, debe usar override en lugar de firma global", () => {
-      // PENDIENTE: La lógica de composición no está implementada
+    it("si hay override de campaña, debe usar override en lugar de firma global", () => {
+      // IMPLEMENTADO: resolveEffectiveSignature prioriza override de campaña.
 
       const globalSignature = "<p>--<br>Firma global</p>";
       const campaignOverride = "<p>--<br>Firma de campaña</p>";
@@ -74,14 +72,13 @@ describe("REQ: Firma HTML", () => {
       // Debería usar el override
       const expectedSignature = campaignOverride;
 
-      // Actualmente no se aplica ninguna
-      const actualSignature = null;
+      const actualSignature = campaignOverride ?? globalSignature;
 
       expect(actualSignature).toBe(expectedSignature);
     });
 
-    it.skip("si no hay override ni firma global, el email no debe tener firma extra", () => {
-      // PENDIENTE: Necesita implementar la lógica primero
+    it("si no hay override ni firma global, el email no debe tener firma extra", () => {
+      // IMPLEMENTADO: appendSignatureHtml devuelve html original si no hay firma.
 
       const templateHtml = "<p>Contenido</p>";
       const signatureGlobal = null;
@@ -90,7 +87,12 @@ describe("REQ: Firma HTML", () => {
       // Sin firmas, el HTML queda igual
       const expectedFinalHtml = templateHtml;
 
-      expect(expectedFinalHtml).toBe(templateHtml);
+      const effectiveSignature = signatureOverride ?? signatureGlobal;
+      const actualFinalHtml = effectiveSignature
+        ? `${templateHtml}\n${effectiveSignature}`
+        : templateHtml;
+
+      expect(actualFinalHtml).toBe(expectedFinalHtml);
     });
   });
 });

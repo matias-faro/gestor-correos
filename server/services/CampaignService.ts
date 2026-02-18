@@ -237,6 +237,7 @@ export async function generateSnapshot(
     position: filters.position,
     tagIds: filters.tagIds,
     sourceId: settings.activeContactSourceId ?? undefined,
+    excludeKeywords: settings.excludeKeywords,
   });
 
   if (contacts.length === 0) {
